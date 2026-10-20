@@ -1,0 +1,75 @@
+{
+  "name": "schrijfkamer",
+  "productName": "Schrijfkamer",
+  "version": "1.0.0",
+  "description": "Een rustige plek om je boek te plannen, te schrijven en bij te houden.",
+  "main": "main.js",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Schrijfkamer"
+  },
+  "scripts": {
+    "build:renderer": "node scripts/build-renderer.js",
+    "sync": "node scripts/build-renderer.js",
+    "start": "npm run build:renderer && electron .",
+    "dist": "npm run build:renderer && electron-builder --win --x64 --publish never"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.129.0"
+  },
+  "devDependencies": {
+    "@fontsource/cormorant-garamond": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/newsreader": "5.3.0",
+    "@fontsource/pinyon-script": "5.3.0",
+    "@fontsource/schibsted-grotesk": "5.3.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "app.schrijfkamer.desktop",
+    "productName": "Schrijfkamer",
+    "copyright": "Schrijfkamer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "ai.js",
+      "preload.js",
+      "renderer/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Schrijfkamer",
+      "installerLanguages": [
+        "nl_NL"
+      ],
+      "language": "1043",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Schrijfkamer-Setup-${version}.exe",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  }
+}
