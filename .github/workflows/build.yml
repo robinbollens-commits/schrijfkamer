@@ -22,6 +22,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run dist
+      - name: Controleer dat de CSP-hash klopt (geen CRLF in de pagina)
+        shell: bash
+        run: node -e "if(require('fs').readFileSync('renderer/index.html','utf8').includes('\r')){console.error('CRLF in renderer/index.html');process.exit(1)}"
       - uses: actions/upload-artifact@v4
         with:
           name: Schrijfkamer-installer

@@ -1,7 +1,7 @@
 {
   "name": "schrijfkamer",
   "productName": "Schrijfkamer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Een rustige plek om je boek te plannen, te schrijven en bij te houden.",
   "main": "main.js",
   "private": true,

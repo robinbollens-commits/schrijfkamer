@@ -4,6 +4,11 @@
   'use strict';
   const D = window.desktop;
   if (!D) return;
+  // Wordt een script geweigerd, toon dat dan in plaats van eeuwig te laden.
+  document.addEventListener('securitypolicyviolation', e => {
+    if (e.effectiveDirective && !e.effectiveDirective.startsWith('script')) return;
+    document.body.innerHTML = '<p style="font:16px system-ui;color:#ECE3D2;padding:40px;max-width:560px">Schrijfkamer kon niet starten (' + e.effectiveDirective + '). Je gegevens zijn veilig. Installeer de nieuwste versie of meld dit.</p>';
+  });
   const err = (code, message) => Object.assign(new Error(message || code), { code });
   const clone = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
   const parent = p => p.slice(0, p.lastIndexOf('/'));

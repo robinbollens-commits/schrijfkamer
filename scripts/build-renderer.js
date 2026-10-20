@@ -13,7 +13,8 @@ const srcFile = path.join(root, 'src', 'schrijfkamer.html');
 const syncFrom = process.argv[2];
 if (syncFrom) { fs.copyFileSync(path.resolve(syncFrom), srcFile); console.log('src/schrijfkamer.html bijgewerkt'); }
 
-let html = fs.readFileSync(srcFile, 'utf8');
+// Windows-checkouts geven CRLF; de HTML-parser maakt daar LF van, dus de CSP-hash moet over LF gaan.
+let html = fs.readFileSync(srcFile, 'utf8').replace(/\r\n?/g, '\n');
 
 /* ---------- kop ---------- */
 html = html
