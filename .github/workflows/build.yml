@@ -1,8 +1,11 @@
 name: Windows-installer bouwen
 
+# Elke push naar main bouwt de installer. Staat er in package.json een versie
+# waarvoor nog geen release bestaat, dan wordt die release automatisch gemaakt.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths-ignore: ['README.md']
   workflow_dispatch:
 
 permissions:
@@ -24,12 +27,16 @@ jobs:
           name: Schrijfkamer-installer
           path: dist/Schrijfkamer-Setup-*.exe
           if-no-files-found: error
-      - name: Release maken
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release maken als deze versie nieuw is
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/Schrijfkamer-Setup-*.exe \
-            --title "Schrijfkamer ${GITHUB_REF_NAME#v}" \
-            --notes "Download **Schrijfkamer-Setup-${GITHUB_REF_NAME#v}.exe** hieronder en dubbelklik. Windows toont waarschijnlijk een blauwe waarschuwing: klik op *Meer informatie* en dan *Toch uitvoeren*. Zie de README voor uitleg."
+          VER=$(node -p "require('./package.json').version")
+          if gh release view "v$VER" >/dev/null 2>&1; then
+            echo "Release v$VER bestaat al; alleen de build-download onder deze run is bijgewerkt."
+            exit 0
+          fi
+          gh release create "v$VER" dist/Schrijfkamer-Setup-*.exe --target "$GITHUB_SHA" \
+            --title "Schrijfkamer $VER" \
+            --notes "Download **Schrijfkamer-Setup-$VER.exe** hieronder en dubbelklik. Windows toont waarschijnlijk een blauwe waarschuwing: klik op *Meer informatie* en dan *Toch uitvoeren*. Zie de README voor uitleg."

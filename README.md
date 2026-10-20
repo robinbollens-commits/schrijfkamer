@@ -4,7 +4,7 @@ Een rustige plek om je boek te plannen, te schrijven en bij te houden: manuscrip
 
 ## Installeren (Windows)
 
-1. Ga naar **Releases** (rechts op deze pagina) en download `Schrijfkamer-Setup-x.y.z.exe`.
+1. Ga naar **Releases** (rechts op deze pagina) en download `Schrijfkamer-Setup-x.y.z.exe`. De repository is privé: wie geen toegang heeft, krijgt het installatiebestand rechtstreeks doorgestuurd.
 2. Dubbelklik op het bestand.
 3. Windows toont waarschijnlijk een blauw scherm: *"Windows heeft uw pc beschermd"*. Dat komt doordat de app niet met een betaald certificaat is ondertekend, niet doordat er iets mis mee is. Klik op **Meer informatie** en dan op **Toch uitvoeren**.
 4. Volg de installatie. Je krijgt een snelkoppeling op je bureaublad en in het startmenu.
@@ -79,14 +79,7 @@ De app zelf staat in `src/schrijfkamer.html`; dat is hetzelfde bestand als de we
 npm run sync -- pad/naar/index.html
 ```
 
-**Een nieuwe release maken:** verhoog `version` in `package.json`, commit en push een tag:
-
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
-
-GitHub Actions bouwt dan de installer op Windows en zet hem bij *Releases*. Via *Actions → Windows-installer bouwen → Run workflow* kun je ook een proefbuild maken zonder release; de installer staat dan als download onder die run.
+**Een nieuwe release maken:** verhoog `version` in `package.json` (bijvoorbeeld naar `1.0.1`), commit en push naar `main`. GitHub Actions bouwt de installer op Windows en maakt automatisch de release `v1.0.1` aan bij *Releases*. Push je zonder de versie te verhogen, dan wordt de installer wel gebouwd (als download onder die run in *Actions*), maar komt er geen nieuwe release.
 
 | Bestand | Wat |
 |---|---|
