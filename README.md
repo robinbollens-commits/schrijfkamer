@@ -15,6 +15,12 @@ De app start leeg. Je kiest dan zelf:
 - **Verken een voorbeeldboek**: een ingevuld boek om te zien hoe alles werkt (je kunt het daarna verwijderen).
 - **Importeer een back-up**: je bestaande boeken uit de webversie of van een andere computer.
 
+## Updates
+
+Vanaf versie 1.0.3 zoekt de app zelf naar updates: bij het opstarten en daarna om de zes uur. Een nieuwe versie wordt op de achtergrond gedownload en geïnstalleerd zodra je de app sluit. Wil je niet wachten, klik dan op **Nu herstarten** (in de zijbalk of bij *Instellingen → Updates*). Je teksten worden eerst bewaard.
+
+Dit werkt alleen als de installers openbaar te downloaden zijn (een publieke repository). Bij een privé-repository meldt de app dat er geen openbare updates te vinden zijn, en installeer je nieuwe versies zelf.
+
 ## Je gegevens
 
 - Alles staat in `%APPDATA%\Schrijfkamer` (via *Instellingen → Gegevensmap openen*).
@@ -85,5 +91,6 @@ npm run sync -- pad/naar/index.html
 |---|---|
 | `main.js` | hoofdproces: venster, opslag, afbeeldingen, reservekopieën, menu |
 | `ai.js` | Claude, Ollama en OpenAI-compatibele servers |
+| `updater.js` | automatische updates via GitHub Releases |
 | `preload.js` | veilige brug tussen venster en hoofdproces |
 | `src/desktop-shim.js` | vertaalt de opslag- en AI-aanroepen van de webapp naar de desktop |

@@ -28,7 +28,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Schrijfkamer-installer
-          path: dist/Schrijfkamer-Setup-*.exe
+          path: |
+            dist/Schrijfkamer-Setup-*.exe
+            dist/latest.yml
           if-no-files-found: error
       - name: Release maken als deze versie nieuw is
         shell: bash
@@ -40,6 +42,6 @@ jobs:
             echo "Release v$VER bestaat al; alleen de build-download onder deze run is bijgewerkt."
             exit 0
           fi
-          gh release create "v$VER" dist/Schrijfkamer-Setup-*.exe --target "$GITHUB_SHA" \
+          gh release create "v$VER" dist/Schrijfkamer-Setup-*.exe dist/Schrijfkamer-Setup-*.exe.blockmap dist/latest.yml --target "$GITHUB_SHA" \
             --title "Schrijfkamer $VER" \
             --notes "Download **Schrijfkamer-Setup-$VER.exe** hieronder en dubbelklik. Windows toont waarschijnlijk een blauwe waarschuwing: klik op *Meer informatie* en dan *Toch uitvoeren*. Zie de README voor uitleg."

@@ -29,4 +29,10 @@ contextBridge.exposeInMainWorld('desktop', {
     onEvent: fn => { aiListeners.add(fn); return () => aiListeners.delete(fn); },
   },
   version: () => ipcRenderer.invoke('app:version'),
+  update: {
+    state: () => ipcRenderer.invoke('update:state'),
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onStatus: fn => { const h = (_e, st) => fn(st); ipcRenderer.on('update:status', h); return () => ipcRenderer.removeListener('update:status', h); },
+  },
 });

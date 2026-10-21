@@ -858,7 +858,7 @@ function renderSide(){
       <button class="btn icon" data-act="newBook" aria-label="Nieuw boek" title="Nieuw boek">+</button></div></div>`:''}
     </div>
     ${b?`<nav class="nav" aria-label="Onderdelen">${NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${S.view===k?'on':''}" ${S.view===k?'aria-current="page"':''}><span>${l}</span>${counts[k]!=null?`<span class="cnt">${counts[k]}</span>`:''}</button>`).join('')}</nav>`:''}
-    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div><div class="row" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Ctrl+H">Zoek en vervang</button>':''}<button class="btn ghost sm" data-act="settings">Instellingen</button></div></div>`;
+    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div>${S.upd&&S.upd.state==='ready'?`<button class="btn sm primary" data-act="updInstall" style="justify-self:start">Update ${esc(S.upd.version||'')}: herstart</button>`:''}<div class="row" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Ctrl+H">Zoek en vervang</button>':''}<button class="btn ghost sm" data-act="settings">Instellingen</button></div></div>`;
   syncState(); refreshSessionUi();
 }
 function updateCounts(){
@@ -2206,6 +2206,30 @@ async function restoreBackup(bk){
   toast(`${n} ${n===1?'boek':'boeken'} geïmporteerd${lostImgs?`; ${lostImgs} afbeelding(en) konden niet mee`:''}`);
 }
 
+/* ================= updates (desktop) ================= */
+function updText(u){
+  switch(u&&u.state){
+    case 'disabled': return 'Automatische updates werken alleen in de geïnstalleerde app.';
+    case 'checking': return 'Bezig met zoeken naar updates…';
+    case 'current': return 'Je hebt de nieuwste versie.';
+    case 'downloading': return `Versie ${esc(u.version||'')} wordt gedownload${u.percent?` (${u.percent}%)`:''}…`;
+    case 'ready': return `Versie ${esc(u.version||'')} staat klaar. Ze wordt geïnstalleerd als je de app sluit, of nu meteen.`;
+    case 'error': return `Updates zoeken lukte niet: ${esc(u.message||'onbekende fout')}`;
+    default: return 'Updates worden automatisch gezocht en op de achtergrond gedownload.';
+  }
+}
+function updHtml(){
+  const u=S.upd||{};
+  return `<span class="muted" style="font-size:13.5px;flex:1">${updText(u)}</span>${u.state==='ready'?'<button class="btn primary sm" data-act="updInstall">Nu herstarten</button>'
+    :u.state==='disabled'||u.state==='downloading'||u.state==='checking'?'':'<button class="btn sm" data-act="updCheck">Zoek naar updates</button>'}`;
+}
+function updStatus(u){
+  const was=S.upd&&S.upd.state; S.upd=u;
+  const el=document.getElementById('ds-upd'); if(el) el.innerHTML=updHtml();
+  if(u.state==='ready'&&was!=='ready'){ renderSide(); toast(`Versie ${u.version} staat klaar`,{label:'Nu herstarten',act:'updInstall'}); }
+}
+if(DESK&&DESK.update){ DESK.update.onStatus(updStatus); DESK.update.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
+
 /* ================= desktop-instellingen ================= */
 const CLAUDE_MODELS=[['claude-opus-5-5','Claude Opus 5.5: beste kwaliteit (±$4 / $20 per miljoen tokens)'],['claude-sonnet-5-5','Claude Sonnet 5.5: sneller en goedkoper (±$2 / $10)'],['claude-haiku-5-5','Claude Haiku 5.5: goedkoopst, minder sterk in lange tekst (±$0,10 / $0,50)']];
 async function openDesktopSettings(){
@@ -2225,6 +2249,8 @@ async function openDesktopSettings(){
       <p class="muted" style="font-size:13.5px">Alles staat op deze computer. Elke dag wordt automatisch een reservekopie gemaakt; de laatste veertien worden bewaard.</p>
       <div class="row"><button class="btn" data-act="export" data-v="backup">Volledige back-up exporteren</button><button class="btn" data-act="bkImport">Back-up importeren</button><button class="btn ghost" data-act="dsOpenData">Gegevensmap openen</button></div>
     </section>
+    ${DESK.update?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Updates</p>
+      <div class="row" id="ds-upd">${updHtml()}</div></section>`:''}
     <div class="row"><span class="faint" style="font-size:12px">Schrijfkamer ${esc(v)}</span><span class="spacer"></span><button class="btn" data-act="closeModal">Sluit</button></div>`,'wide');
   $('#ds-prov').value=S.dcfg.provider;
   renderDsFields();
@@ -2795,6 +2821,8 @@ const ACTS={
   dsTest:()=>testDesktopAi(),
   dsModels:()=>loadDesktopModels(),
   dsOpenData:()=>DESK&&DESK.files.openDataDir(),
+  updCheck:()=>{ if(DESK&&DESK.update){ updStatus(Object.assign({},S.upd,{state:'checking'})); DESK.update.check().then(updStatus).catch(()=>{}); } },
+  updInstall:()=>{ if(DESK&&DESK.update){ flushAll(); toast('Schrijfkamer wordt bijgewerkt en start zo opnieuw…'); DESK.update.install(); } },
   importOpen:()=>openImport(),
   impGo:()=>runImport(),
   addScene:()=>{ const c=S.chapters.find(x=>x.id===S.sel.chapters); if(!c) return; c.scenes=c.scenes||[];

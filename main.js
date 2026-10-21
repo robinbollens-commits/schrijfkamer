@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const ai = require('./ai');
+const updater = require('./updater');
 
 const SCHEME = 'app';
 const HOST = 'schrijfkamer';
@@ -113,6 +114,13 @@ function runtimeConfig(c) { return Object.assign({}, c, { apiKey: unseal(c.apiKe
 
 /* ---------- venster ---------- */
 let win = null, closing = false;
+// Laat het venster zijn openstaande wijzigingen wegschrijven en bewaar daarna alles op schijf.
+async function flushWindow() {
+  if (win && !win.isDestroyed()) {
+    await Promise.race([win.webContents.executeJavaScript('window.__skFlush ? window.__skFlush() : true', true), new Promise(r => setTimeout(r, 4000))]).catch(() => {});
+  }
+  try { saveDocsNow(); } catch (err) { console.error(err); }
+}
 function createWindow() {
   win = new BrowserWindow({
     width: 1360, height: 900, minWidth: 900, minHeight: 600, show: false,
@@ -146,9 +154,7 @@ function createWindow() {
   win.on('close', e => {
     if (closing) return;
     e.preventDefault(); closing = true;
-    const done = () => { try { saveDocsNow(); } catch (err) { console.error(err); } if (win && !win.isDestroyed()) win.destroy(); };
-    Promise.race([wc.executeJavaScript('window.__skFlush ? window.__skFlush() : true', true), new Promise(r => setTimeout(r, 4000))])
-      .catch(() => {}).then(done);
+    flushWindow().then(() => { if (win && !win.isDestroyed()) win.destroy(); });
   });
   win.on('closed', () => { win = null; });
 }
@@ -240,6 +246,7 @@ app.whenReady().then(() => {
   ipc();
   buildMenu();
   createWindow();
+  updater.init({ getWin: () => win, beforeInstall: async () => { await flushWindow(); closing = true; } });
 });
 app.on('window-all-closed', () => { try { saveDocsNow(); } catch (e) {} app.quit(); });
 app.on('before-quit', () => { try { saveDocsNow(); } catch (e) {} });
