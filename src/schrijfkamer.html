@@ -214,6 +214,12 @@ body.focus .edfoot{background:var(--paper)}
 .note .src{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
 .note .src a{color:var(--pencil)}
 .tick{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);cursor:pointer}
+.frlist{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.frlist li{padding:8px 12px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.5}
+.frlist li:first-child{border-top:0}
+.frlist b{display:flex;gap:8px;font-weight:600;color:var(--ink)}.frlist b span{margin-left:auto;color:var(--faint);font-weight:400;font-size:12.5px}
+.frlist mark{background:var(--wash);color:var(--pencil);border-radius:3px;padding:0 2px}
+.frlist .ctx{color:var(--muted)}
 .tick input{accent-color:var(--pencil)}
 
 /* ---------- voortgang ---------- */
@@ -852,7 +858,7 @@ function renderSide(){
       <button class="btn icon" data-act="newBook" aria-label="Nieuw boek" title="Nieuw boek">+</button></div></div>`:''}
     </div>
     ${b?`<nav class="nav" aria-label="Onderdelen">${NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${S.view===k?'on':''}" ${S.view===k?'aria-current="page"':''}><span>${l}</span>${counts[k]!=null?`<span class="cnt">${counts[k]}</span>`:''}</button>`).join('')}</nav>`:''}
-    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div><button class="btn ghost sm" data-act="settings" style="justify-self:start">Instellingen</button></div>`;
+    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div><div class="row" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Ctrl+H">Zoek en vervang</button>':''}<button class="btn ghost sm" data-act="settings">Instellingen</button></div></div>`;
   syncState(); refreshSessionUi();
 }
 function updateCounts(){
@@ -2614,6 +2620,121 @@ async function runFeedback(){
   finally{ F.busy=false; F.ctl=null; renderFeedback(); if(S.view==='voortgang') soft(); }
 }
 
+/* ================= zoeken en vervangen ================= */
+// Velden met id's, keuzelijsten of tellers worden nooit aangeraakt.
+const FR_SKIP=new Set(['id','pov','place','chapterId','img','cover','banners','created','updated','status','structure','type','role','importance','kind','src','order','words','done','pct','log','checklist','start','end']);
+const FR_SCOPES=[['manuscript','Manuscript'],['entities','Personages en wereld'],['plot','Plot, boekgegevens en marketing'],['ideas','Ideeën, research en sessies']];
+function frRegex(q,F){
+  const src=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return new RegExp(F.word?`(?<![\\p{L}\\p{N}_])${src}(?![\\p{L}\\p{N}_])`:src,'gu'+(F.cs?'':'i'));
+}
+// Zonder hoofdlettergevoeligheid volgt de vervanging de vorm van wat er stond: RUTH → SARAH, Ruth → Sarah.
+function frFit(m,r){
+  if(!r) return r;
+  if(m.length>1&&m===m.toUpperCase()&&m!==m.toLowerCase()) return r.toUpperCase();
+  if(m[0]!==m[0].toLowerCase()) return r[0].toUpperCase()+r.slice(1);
+  return r;
+}
+function frWalk(o,fn){
+  let changed=false;
+  for(const k of Object.keys(o)){
+    if(FR_SKIP.has(k)) continue;
+    const v=o[k];
+    if(typeof v==='string'){ const n=fn(v); if(n!==undefined&&n!==v){ o[k]=n; changed=true; } }
+    else if(v&&typeof v==='object'&&frWalk(v,fn)) changed=true;
+  }
+  return changed;
+}
+function frTargets(sc){
+  const out=[], lab=d=>d.title||d.name||d.label||cut(d.text||d.reflectie||'',40)||'Zonder titel';
+  const add=(kind,f)=>S[kind].forEach(d=>out.push({kind,doc:d,label:f(d)}));
+  if(sc.manuscript) add('chapters',d=>`Hoofdstuk ${S.chapters.indexOf(d)+1}${d.title?': '+d.title:''}`);
+  if(sc.entities){ add('characters',d=>'Personage: '+(d.name||'naamloos')); add('places',d=>'Wereld: '+(d.name||'naamloos')); }
+  if(sc.plot&&book()) out.push({kind:'book',doc:book(),label:'Plot en boekgegevens'});
+  if(sc.ideas){ add('notes',d=>'Idee: '+lab(d)); add('research',d=>'Research: '+lab(d)); add('sessions',d=>'Sessie: '+lab(d)); add('designs',d=>'Ontwerp: '+lab(d)); }
+  return out;
+}
+function frRead(){
+  const F=S.fr, v=id=>document.getElementById(id);
+  if(!v('fr-q')) return;
+  F.q=v('fr-q').value; F.r=v('fr-r').value; F.word=v('fr-word').checked; F.cs=v('fr-cs').checked;
+  FR_SCOPES.forEach(([k])=>F.scope[k]=v('fr-s-'+k).checked);
+}
+function frScan(){
+  const F=S.fr; F.hits=[]; F.total=0;
+  if(!F.q) return;
+  const re=frRegex(F.q,F);
+  for(const t of frTargets(F.scope)){
+    let n=0, snip=null;
+    frWalk(t.doc,v=>{
+      for(const m of v.matchAll(re)){
+        n++;
+        if(!snip){ const a=m.index, z=a+m[0].length; snip=[(a>45?'…':'')+v.slice(Math.max(0,a-45),a),m[0],v.slice(z,z+45)+(z+45<v.length?'…':'')]; }
+      }
+    });
+    if(n){ F.hits.push({label:t.label,n,snip}); F.total+=n; }
+  }
+}
+function renderFr(){
+  const F=S.fr, out=$('#fr-out'), go=$('#fr-go'); if(!out) return;
+  go.disabled=!F.total; go.textContent=F.total?`${F.r?'Vervang':'Verwijder'} alle ${nf(F.total)}`:'Vervang alle';
+  go.dataset.confirm=`Echt alle ${nf(F.total)} verwijderen?`;
+  const done=F.undo?`<div class="row" style="margin-bottom:10px"><span style="color:var(--ok)">${nf(F.undo.n)} keer “${esc(F.undo.q)}” vervangen door “${esc(F.undo.r)}”.</span><span class="spacer"></span><button class="btn sm" data-act="frUndo">Maak ongedaan</button></div>`:'';
+  if(!F.q){ out.innerHTML=done+'<p class="muted" style="font-size:13.5px">Typ wat je zoekt. Je ziet eerst alle treffers; er verandert pas iets als je op Vervang klikt.</p>'; return; }
+  if(!F.total){ out.innerHTML=done+`<p class="muted" style="font-size:13.5px">Geen treffers voor “${esc(F.q)}”.</p>`; return; }
+  out.innerHTML=done+`<p class="muted" style="font-size:13.5px;margin:0 0 8px">${nf(F.total)} ${F.total===1?'treffer':'treffers'} in ${F.hits.length} ${F.hits.length===1?'onderdeel':'onderdelen'}:</p>
+    <ul class="frlist">${F.hits.map(h=>`<li><b>${esc(h.label)}<span>${h.n}×</span></b><span class="ctx">${esc(h.snip[0])}<mark>${esc(h.snip[1])}</mark>${esc(h.snip[2])}</span></li>`).join('')}</ul>`;
+}
+function openFr(){
+  if(!book()) return;
+  const a=document.activeElement; let pre='';
+  if(a&&a.matches&&a.matches('#main textarea,#main input[type="text"]')&&a.selectionEnd>a.selectionStart) pre=a.value.slice(a.selectionStart,a.selectionEnd).trim().slice(0,80);
+  flushAll();
+  S.fr=Object.assign({q:'',r:'',word:true,cs:true,scope:{manuscript:true,entities:true,plot:true,ideas:true}},S.fr||{},{hits:[],total:0,undo:null});
+  if(pre) S.fr.q=pre;
+  const F=S.fr;
+  openModal(`<h2 id="mt">Zoek en vervang</h2>
+    <p class="muted" style="font-size:13.5px;margin-top:-6px">In “${esc(book().title||'je boek')}”. Andere boeken blijven ongemoeid.</p>
+    <div class="form">
+      <div class="field half"><label for="fr-q">Zoek</label><input id="fr-q" type="text" autocomplete="off" spellcheck="false" value="${esc(F.q)}" placeholder="bijvoorbeeld Ruth"></div>
+      <div class="field half"><label for="fr-r">Vervang door</label><input id="fr-r" type="text" autocomplete="off" spellcheck="false" value="${esc(F.r)}"></div>
+    </div>
+    <div class="row" style="gap:16px">
+      <label class="tick"><input type="checkbox" id="fr-word" ${F.word?'checked':''}> Alleen hele woorden <span class="faint">(niet “truth” bij “ruth”)</span></label>
+      <label class="tick"><input type="checkbox" id="fr-cs" ${F.cs?'checked':''}> Hoofdlettergevoelig</label>
+    </div>
+    <div class="row" style="gap:16px"><span class="lbl" style="margin:0">Zoek in</span>${FR_SCOPES.map(([k,l])=>`<label class="tick"><input type="checkbox" id="fr-s-${k}" ${F.scope[k]?'checked':''}> ${l}</label>`).join('')}</div>
+    <div id="fr-out"></div>
+    <div class="row"><span class="faint" style="font-size:12.5px">Sneltoets: Ctrl+H</span><span class="spacer"></span><button class="btn" data-act="closeModal">Sluit</button><button class="btn primary" data-act="frGo" id="fr-go" disabled>Vervang alle</button></div>`,'wide');
+  const q=$('#fr-q'); q.focus(); q.select();
+  frScan(); renderFr();
+}
+function frGo(){
+  const F=S.fr; frRead(); frScan(); if(!F.total) return;
+  const re=frRegex(F.q,F), undo=[]; let n=0;
+  for(const t of frTargets(F.scope)){
+    const before=structuredClone(t.doc);
+    if(!frWalk(t.doc,v=>v.replace(re,m=>{ n++; return F.cs?F.r:frFit(m,F.r); }))) continue;
+    undo.push({kind:t.kind,before});
+    if(t.kind==='book') saveBook(t.doc,0);
+    else { if(t.kind==='chapters'){ t.doc.words=countWords(t.doc.text); t.doc.updated=Date.now(); } saveEnt(t.kind,t.doc,0); }
+  }
+  F.undo={list:undo,n,q:F.q,r:F.r};
+  render(); frScan(); renderFr();
+  toast(`${nf(n)} keer vervangen`);
+}
+function frUndo(){
+  const F=S.fr, U=F&&F.undo; if(!U) return;
+  for(const {kind,before} of U.list){
+    if(kind==='book'){ const i=S.books.findIndex(x=>x.id===before.id); if(i>=0) S.books[i]=before; saveBook(before,0); }
+    else { const i=S[kind].findIndex(x=>x.id===before.id); if(i>=0) S[kind][i]=before; saveEnt(kind,before,0); }
+  }
+  F.undo=null; render(); frScan(); renderFr();
+  toast('Vervanging ongedaan gemaakt');
+}
+$('#modal').addEventListener('input',e=>{ if(/^fr-/.test(e.target.id)){ frRead(); frScan(); renderFr(); } });
+$('#modal').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.target.id==='fr-q'||e.target.id==='fr-r')){ e.preventDefault(); if(S.fr.total&&S.fr.r) frGo(); } });
+
 /* ================= modal & toast ================= */
 function openModal(html,cls=''){
   const m=$('#modal');
@@ -2648,6 +2769,9 @@ const ACTS={
   createBook:d=>createBook(d.p),
   closeModal:(d,a,e)=>{ if(d.self&&e.target!==a) return; closeModal(); },
   sample:()=>loadSample(),
+  frOpen:()=>openFr(),
+  frGo:(d,a)=>{ if(!S.fr.r&&!armed(a)) return; frGo(); },
+  frUndo:()=>frUndo(),
   selCh:d=>{ S.sel.chapters=d.id; renderMain(); if(innerWidth<900) $('.sheet')?.scrollIntoView({block:'start'}); },
   openCh:d=>{ S.sel.chapters=d.id; go('manuscript'); },
   addCh:()=>addChapter(),
@@ -2814,6 +2938,7 @@ $('#bkFile').addEventListener('change',async e=>{
 $('#imgPick').addEventListener('change',e=>{ const f=e.target.files&&e.target.files[0]; if(f) uploadImage(f); else S.pickFor=null; });
 $('#side').addEventListener('change',e=>{ if(e.target.id==='bookSel'){ flushAll(); selectBook(e.target.value); } });
 document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='h'&&book()){ e.preventDefault(); openFr(); return; }
   if(e.key!=='Escape') return;
   if(!$('#modal').hidden){ closeModal(); return; }
   if(document.body.classList.contains('focus')){ document.body.classList.remove('focus'); renderMain(); }
