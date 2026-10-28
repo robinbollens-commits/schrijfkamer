@@ -86,6 +86,21 @@ function assetPath(id) {
   try { const n = fs.readdirSync(assetDir()).find(f => f.startsWith(id + '.')); return n ? path.join(assetDir(), n) : null; } catch (e) { return null; }
 }
 
+/* ---------- spellingscontrole ---------- */
+// Chromium zoekt woordenboeken in <userData>/Dictionaries en downloadt ze anders van een CDN.
+// Die download mislukt soms zonder melding, dus de app levert ze zelf mee.
+function installDictionaries() {
+  const src = app.isPackaged ? path.join(process.resourcesPath, 'dictionaries') : path.join(__dirname, 'dictionaries');
+  const dst = path.join(dataDir(), 'Dictionaries');
+  try {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const f of fs.readdirSync(src)) {
+      if (f.endsWith('.bdic') && !fs.existsSync(path.join(dst, f))) fs.copyFileSync(path.join(src, f), path.join(dst, f));
+    }
+  } catch (e) { console.error('woordenboeken', e); }
+}
+const spellState = {};
+
 /* ---------- instellingen en sleutels ---------- */
 const DEFAULT_CFG = { provider: 'none', model: 'claude-opus-5-5', ollamaUrl: 'http://localhost:11434', ollamaModel: '', numCtx: 16384, oaiUrl: 'http://localhost:1234/v1', oaiModel: '' };
 function loadConfig() { return Object.assign({}, DEFAULT_CFG, readJson(configFile(), {})); }
@@ -132,6 +147,8 @@ function createWindow() {
   win.loadURL(`${SCHEME}://${HOST}/index.html`);
 
   const wc = win.webContents;
+  wc.session.on('spellcheck-dictionary-initialized', (_e, l) => { spellState[l] = 'ok'; });
+  wc.session.on('spellcheck-dictionary-download-failure', (_e, l) => { if (spellState[l] !== 'ok') spellState[l] = 'failed'; });
   wc.setWindowOpenHandler(({ url }) => { if (/^https?:|^mailto:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   wc.on('will-navigate', (e, url) => { if (!url.startsWith(`${SCHEME}://${HOST}/`)) { e.preventDefault(); if (/^https?:/.test(url)) shell.openExternal(url); } });
   wc.session.setPermissionRequestHandler((_wc, perm, cb) => cb(['clipboard-sanitized-write', 'clipboard-read', 'fullscreen'].includes(perm)));
@@ -230,8 +247,9 @@ function ipc() {
     const ses = e.sender.session, have = ses.availableSpellCheckerLanguages || [];
     const pick = (SPELL[lang] || []).find(l => have.includes(l));
     if (pick) ses.setSpellCheckerLanguages([pick]);
-    return ses.getSpellCheckerLanguages();
+    return { langs: ses.getSpellCheckerLanguages(), state: spellState };
   });
+  ipcMain.handle('spell:status', e => ({ enabled: e.sender.session.isSpellCheckerEnabled(), langs: e.sender.session.getSpellCheckerLanguages(), state: spellState }));
 
   ipcMain.handle('ai:getConfig', () => publicConfig(loadConfig()));
   ipcMain.handle('ai:setConfig', (_e, input) => { const c = mergeConfig(input); writeAtomic(configFile(), JSON.stringify(c, null, 2)); return publicConfig(c); });
@@ -251,6 +269,7 @@ app.whenReady().then(() => {
   fs.mkdirSync(dataDir(), { recursive: true });
   try { dailyBackup(); } catch (e) { console.error('reservekopie', e); }
   loadDocs();
+  installDictionaries();
   protocol.handle(SCHEME, serve);
   ipc();
   buildMenu();

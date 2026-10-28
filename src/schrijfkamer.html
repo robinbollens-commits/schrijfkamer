@@ -2415,11 +2415,20 @@ async function openDesktopSettings(){
       <p class="muted" style="font-size:13.5px">Alles staat op deze computer. Elke dag wordt automatisch een reservekopie gemaakt; de laatste veertien worden bewaard.</p>
       <div class="row"><button class="btn" data-act="export" data-v="backup">Volledige back-up exporteren</button><button class="btn" data-act="bkImport">Back-up importeren</button><button class="btn ghost" data-act="dsOpenData">Gegevensmap openen</button></div>
     </section>
+    ${DESK.spell&&DESK.spell.status?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Spellingscontrole</p>
+      <p class="muted" style="font-size:13.5px;margin:0" id="ds-spell">Bezig met nakijken…</p></section>`:''}
     ${DESK.update?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Updates</p>
       <div class="row" id="ds-upd">${updHtml()}</div></section>`:''}
     <div class="row"><span class="faint" style="font-size:12px">Schrijfkamer ${esc(v)}</span><span class="spacer"></span><button class="btn" data-act="closeModal">Sluit</button></div>`,'wide');
   $('#ds-prov').value=S.dcfg.provider;
   renderDsFields();
+  if(DESK.spell&&DESK.spell.status) DESK.spell.status().then(r=>{
+    const el=$('#ds-spell'); if(!el||!r) return;
+    const lang=(r.langs||[])[0]||'', failed=lang&&r.state&&r.state[lang]==='failed';
+    el.textContent=!r.enabled?'De spellingscontrole staat uit.'
+      :failed?`Het woordenboek voor ${langName()} kon niet geladen worden.`
+      :`Actief voor ${langName()}${book()?` (de taal van “${book().title||'dit boek'}”)`:''}. Fout gespelde woorden krijgen een rode golflijn; klik er met de rechtermuisknop op voor suggesties. De taal kies je per boek bij Boek.`;
+  }).catch(()=>{});
 }
 function readDsFields(){
   const c=S.dcfg; c.provider=$('#ds-prov').value;
