@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('desktop', {
     onEvent: fn => { aiListeners.add(fn); return () => aiListeners.delete(fn); },
   },
   version: () => ipcRenderer.invoke('app:version'),
+  spell: { set: lang => ipcRenderer.invoke('spell:set', lang) },
   update: {
     state: () => ipcRenderer.invoke('update:state'),
     check: () => ipcRenderer.invoke('update:check'),

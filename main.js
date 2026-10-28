@@ -223,6 +223,15 @@ function ipc() {
   });
   ipcMain.handle('files:openDataDir', () => shell.openPath(dataDir()));
   ipcMain.handle('app:version', () => app.getVersion());
+  // Spellingscontrole volgt de taal van het open boek (op macOS kiest het systeem zelf).
+  const SPELL = { nl: ['nl', 'nl-NL', 'nl-BE'], en: ['en-US', 'en-GB', 'en'], fr: ['fr', 'fr-FR'], de: ['de', 'de-DE'], es: ['es', 'es-ES', 'es-419'], it: ['it', 'it-IT'], pt: ['pt-PT', 'pt-BR', 'pt'] };
+  ipcMain.handle('spell:set', (e, lang) => {
+    if (process.platform === 'darwin') return [];
+    const ses = e.sender.session, have = ses.availableSpellCheckerLanguages || [];
+    const pick = (SPELL[lang] || []).find(l => have.includes(l));
+    if (pick) ses.setSpellCheckerLanguages([pick]);
+    return ses.getSpellCheckerLanguages();
+  });
 
   ipcMain.handle('ai:getConfig', () => publicConfig(loadConfig()));
   ipcMain.handle('ai:setConfig', (_e, input) => { const c = mergeConfig(input); writeAtomic(configFile(), JSON.stringify(c, null, 2)); return publicConfig(c); });

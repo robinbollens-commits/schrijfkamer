@@ -909,17 +909,30 @@ function renderMain(){
   if(!VIEWS[S.view]) S.view='overzicht';
   m.innerHTML=bannerHtml(S.view)+VIEWS[S.view]();
   m.querySelectorAll('textarea.grow').forEach(grow);
+  applyLang();
   scrollTo(0,y);
   tickSprint(); refreshSessionUi(); renderGen();
 }
 function grow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 
 /* ---------- welkom ---------- */
+/* ---------- taal van het boek: spellingscontrole, afbreken en AI ---------- */
+const BOOK_LANGS=[['nl','Nederlands','Nederlandstalige'],['en','Engels','Engelstalige'],['fr','Frans','Franstalige'],['de','Duits','Duitstalige'],['es','Spaans','Spaanstalige'],['it','Italiaans','Italiaanstalige'],['pt','Portugees','Portugeestalige']];
+const bookLang=(b=book())=>(b&&b.lang)||'nl';
+const langName=(c=bookLang())=>(BOOK_LANGS.find(x=>x[0]===c)||BOOK_LANGS[0])[1];
+const langOptions=sel=>BOOK_LANGS.map(([c,n])=>`<option value="${c}" ${c===sel?'selected':''}>${n}</option>`).join('');
+function applyLang(){
+  const L=bookLang();
+  document.querySelectorAll('#main textarea[data-bind],#main input[type="text"][data-bind],#main .rwps').forEach(el=>{ el.lang=L; });
+  if(DESK&&DESK.spell&&applyLang.last!==L){ applyLang.last=L; DESK.spell.set(L).catch(()=>{}); }
+}
+
 function bookForm(p){
   return `<div class="form">
     <div class="field"><label for="${p}-title">Werktitel</label><input id="${p}-title" type="text" placeholder="Bijvoorbeeld: Het huis aan de Leie"></div>
     <div class="field half"><label for="${p}-genre">Genre</label><input id="${p}-genre" type="text" list="genres" placeholder="Thriller, fantasy, roman…"></div>
     <div class="field half"><label for="${p}-target">Beoogde lengte</label><select id="${p}-target">${LENGTHS.map(([l,n])=>`<option value="${n}" ${n===80000?'selected':''}>${l} · ${nf(n)} woorden</option>`).join('')}</select></div>
+    <div class="field half"><label for="${p}-lang">Taal van het boek</label><select id="${p}-lang">${langOptions('nl')}</select></div>
     <div class="field half"><label for="${p}-series">Reeks <span class="faint" style="font-weight:400">(optioneel)</span></label><input id="${p}-series" type="text" list="seriesList" placeholder="Bijvoorbeeld: De Wierland-reeks"></div>
     ${S.books.length?`<div class="field half"><label for="${p}-from">Personages, wereld en research overnemen van</label><select id="${p}-from"><option value="">Niets overnemen</option>${S.books.map(x=>`<option value="${esc(x.id)}">${esc(x.title||'Naamloos boek')}</option>`).join('')}</select></div>`:''}
     <datalist id="seriesList">${[...new Set(S.books.map(x=>x.series).filter(Boolean))].map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>
@@ -1090,7 +1103,7 @@ function vManuscript(){
         <textarea class="syn grow" id="ch-syn" rows="2" aria-label="Samenvatting" placeholder="Samenvatting of scèneplan: wat gebeurt er, wie wil wat, wat verandert er?" data-bind="chapters:${esc(sel.id)}:synopsis">${esc(sel.synopsis)}</textarea>
         ${scenesHtml(sel)}
         <hr class="synhr">
-        <textarea class="prose grow" id="ch-text" aria-label="Tekst van het hoofdstuk" placeholder="${rw?'Herschrijf hier, in je eigen woorden. De vorige versie staat ernaast als referentie.':'Begin hier met schrijven…'}" spellcheck="true" lang="nl" data-bind="chapters:${esc(sel.id)}:text">${esc(sel.text)}</textarea>
+        <textarea class="prose grow" id="ch-text" aria-label="Tekst van het hoofdstuk" placeholder="${rw?'Herschrijf hier, in je eigen woorden. De vorige versie staat ernaast als referentie.':'Begin hier met schrijven…'}" spellcheck="true" data-bind="chapters:${esc(sel.id)}:text">${esc(sel.text)}</textarea>
         <div class="edfoot">
           <span><b id="lw">${nf(sel.words)}</b> woorden${goal?` van ${nf(goal)}`:''}</span>
           ${goal?`<span class="meter ${sel.words>=goal?'ok':''}" id="lgm"><i style="width:${Math.min(100,(sel.words||0)/goal*100)}%"></i></span>`:''}
@@ -1528,6 +1541,7 @@ function vBoek(){
   <div class="grid2">
     <section class="panel"><div class="form">
       ${f('title','Werktitel','text')}${f('genre','Genre','text')}${f('series','Reeks','text')}
+      <div class="field half"><label for="bk-lang">Taal van het boek</label><select id="bk-lang" data-bind="book::lang">${langOptions(bookLang(b))}</select><p class="hint">Voor de spellingscontrole en de AI.</p></div>
       <div class="field half"><label for="bk-status">Fase</label><select id="bk-status" data-bind="book::status">${BOOK_STATUS.map(s=>`<option ${s===(b.status||'Plannen')?'selected':''}>${s}</option>`).join('')}</select></div>
       ${f('deadline','Deadline eerste versie','date')}
       ${f('targetWords','Doel in woorden','number')}${f('dailyGoal','Dagdoel in woorden','number')}
@@ -1609,14 +1623,17 @@ async function aiText(prompt,ctl,onText){
 async function runMkt(k){
   const M=S.mkt; if(M.busy||!aiOn()) return;
   const b=book(), m=b.marketing||{}, topic=MKT_TOPICS.find(x=>x[0]===k); if(!topic) return;
-  const L=['Je bent een ervaren boekenmarketeer in het Nederlandse taalgebied (Vlaanderen en Nederland).','',
+  const lg=BOOK_LANGS.find(x=>x[0]===bookLang(b))||BOOK_LANGS[0];
+  const L=[lg[0]==='nl'?'Je bent een ervaren boekenmarketeer in het Nederlandse taalgebied (Vlaanderen en Nederland).'
+      :`Je bent een ervaren boekenmarketeer voor de ${lg[2]} markt. Het boek is geschreven in het ${lg[1]}.`,'',
     '## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,b.series?`Reeks: ${b.series}`:'',`Logline: ${cut(b.logline,600)||'-'}`,`Thema: ${cut(b.theme,300)||'-'}`,
     `Synopsis: ${cut(b.synopsis,1500)||'-'}`,`Beoogde lengte: ${b.targetWords||'?'} woorden. Fase: ${b.status||'-'}.`,''];
   const B=S.brand; if(B.name||B.tagline||B.bio) L.push('## Auteur',B.name?`Naam: ${B.name}`:'',B.tagline?`Belofte: ${B.tagline}`:'',B.bio?`Bio: ${cut(B.bio,500)}`:'','');
   const other=MKT_TOPICS.filter(([x])=>x!==k&&String(m[x]||'').trim());
   if(other.length){ L.push('## Wat al in het marketingplan staat'); other.forEach(([x,l])=>L.push(`${l}: ${cut(m[x],600)}`)); L.push(''); }
   L.push('## Opdracht',`Schrijf een eerste versie voor het onderdeel “${topic[1]}” van het marketingplan: ${topic[2]}`,
-    'Concreet en afgestemd op dit boek, 4 à 8 korte punten die elk met een streepje beginnen. Geen inleiding of afsluiting, alleen de punten. Verzin geen feiten over de auteur of over bestaande titels die je niet zeker kent.');
+    'Concreet en afgestemd op dit boek, 4 à 8 korte punten die elk met een streepje beginnen. Geen inleiding of afsluiting, alleen de punten. Verzin geen feiten over de auteur of over bestaande titels die je niet zeker kent.',
+    lg[0]==='nl'?'':`Schrijf je uitleg in het Nederlands, maar zet voorbeeldteksten voor lezers (zoals een achterflap, slogan of post) in het ${lg[1]}.`);
   M.busy=k; M.text=''; M.err=''; M.errK=null; delete M.sugg[k];
   const ctl=new AbortController(); M.ctl=ctl; refreshMkt(k);
   try{ const t=await aiText(L.filter(Boolean).join('\n'),ctl,({text})=>{ M.text=text; refreshMkt(k); }); M.sugg[k]=t.trim(); }
@@ -1776,6 +1793,7 @@ function chatBrief(){
   const L=[`# Achtergrond bij mijn boek “${b.title||'Naamloos boek'}”`,
     'Dit is mijn verhaalbijbel uit Schrijfkamer. Gebruik ze als vaste achtergrond bij alles wat we in deze chat doen: spreek ze niet tegen, en vraag het me als iets ontbreekt of niet klopt.',''];
   L.push('## Kern');
+  if(bookLang(b)!=='nl') L.push(`- Taal van het boek: ${langName(bookLang(b))}. Schrijf romantekst en voorbeeldzinnen in die taal.`);
   if(b.series) L.push(`- Reeks: ${b.series}`);
   L.push(`- Genre: ${b.genre||'-'}`,`- Logline: ${b.logline||'-'}`,`- Thema: ${b.theme||'-'}`,`- Beoogde lengte: ${b.targetWords||'?'} woorden (nu ${total} geschreven)`,'');
   if(b.synopsis) L.push('## Synopsis',b.synopsis.trim(),'');
@@ -1847,8 +1865,9 @@ async function createBook(p){
   const target=Number($('#'+p+'-target')?.value)||80000;
   const from=$('#'+p+'-from')?.value||'', src=S.books.find(x=>x.id===from);
   const series=($('#'+p+'-series')?.value||'').trim()||(src&&src.series)||'';
+  const lang=$('#'+p+'-lang')?.value||(src&&src.lang)||'nl';
   const id=newId();
-  const b={id,title,genre,series,status:'Plannen',targetWords:target,dailyGoal:500,deadline:'',logline:'',theme:'',synopsis:'',structure:'saveTheCat',beats:mkBeats('saveTheCat'),checklist:{},log:{},created:Date.now()};
+  const b={id,title,genre,series,lang,status:'Plannen',targetWords:target,dailyGoal:500,deadline:'',logline:'',theme:'',synopsis:'',structure:'saveTheCat',beats:mkBeats('saveTheCat'),checklist:{},log:{},created:Date.now()};
   closeModal();
   if(!S.books.find(x=>x.id===id)) S.books.push(b);
   await writeNow(P.book(id),b);
@@ -2121,7 +2140,7 @@ function buildNextPrompt(fromId,ask){
   const L=[];
   L.push('Je bent een ervaren redacteur en schrijfcoach. Een romanschrijver vraagt je: "Wat schrijf ik hierna?"',
     'Hieronder staat alles wat de schrijver over het boek heeft vastgelegd. Ga daarvan uit en spreek het niet tegen.','');
-  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Logline: ${cut(b.logline,600)||'-'}`,`Thema: ${cut(b.theme,400)||'-'}`,
+  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Taal van het boek: ${langName(bookLang(b))}`,`Logline: ${cut(b.logline,600)||'-'}`,`Thema: ${cut(b.theme,400)||'-'}`,
     `Synopsis: ${cut(b.synopsis,3000)||'-'}`,`Beoogde lengte: ${b.targetWords||'?'} woorden. Tot en met het vertrekpunt zijn ${upto} woorden geschreven (${b.targetWords?Math.round(upto/b.targetWords*100):'?'}% van de beoogde lengte).`,'');
   const beats=[...(b.beats||[])].sort((a,c)=>(a.pct||0)-(c.pct||0));
   if(beats.length){
@@ -2532,7 +2551,7 @@ const CHAR_KEYS=CHAR_FIELDS.filter(f=>f.k!=='name');
 const PLACE_KEYS=PLACE_FIELDS.filter(f=>f.k!=='name');
 function ctxBook(detail){
   const b=book(), L=[];
-  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Logline: ${cut(b.logline,600)||'-'}`,`Thema: ${cut(b.theme,400)||'-'}`,`Synopsis: ${cut(b.synopsis,detail?3000:1500)||'-'}`,'');
+  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Taal van het boek: ${langName(bookLang(b))}`,`Logline: ${cut(b.logline,600)||'-'}`,`Thema: ${cut(b.theme,400)||'-'}`,`Synopsis: ${cut(b.synopsis,detail?3000:1500)||'-'}`,'');
   if(S.characters.length){
     L.push('## Personages (zoals de schrijver ze vastlegde)');
     S.characters.slice(0,25).forEach(c=>L.push(`- ${c.name||'Naamloos'}: `+CHAR_KEYS.filter(f=>c[f.k]).map(f=>`${f.l.replace(/\?$/,'')}: ${cut(c[f.k],detail?350:160)}`).join(' | ')));
@@ -2744,7 +2763,7 @@ function buildFeedbackPrompt(x){
   const b=book(), others=S.sessions.filter(y=>y.id!==x.id).sort((a,c)=>(c.start||0)-(a.start||0));
   const wo=others.filter(isWriting), om=wo.reduce((t,y)=>t+(y.minutes||0),0), ow=wo.reduce((t,y)=>t+(y.words||0),0);
   const L=['Je bent een eerlijke, bemoedigende schrijfcoach. Geef kort feedback op één schrijfsessie van een romanschrijver.',''];
-  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Logline: ${cut(b.logline,500)||'-'}`,'');
+  L.push('## Boek',`Titel: ${b.title||'-'}`,`Genre: ${b.genre||'-'}`,`Taal van het boek: ${langName(bookLang(b))}`,`Logline: ${cut(b.logline,500)||'-'}`,'');
   L.push('## Deze sessie',`Soort werk: ${x.type||'Schrijven'}.${isWriting(x)?'':' Bij dit soort werk zegt het aantal woorden weinig; beoordeel het tempo niet.'}`,
     `${x.minutes} minuten, ${x.words} woorden, ${x.wph} woorden per uur.`,
     wo.length?`Gemiddeld schrijftempo in ${wo.length} eerdere schrijfsessies: ${Math.round(om?ow/(om/60):0)} woorden per uur.`:'Er zijn nog geen eerdere schrijfsessies om mee te vergelijken.',
@@ -3049,7 +3068,7 @@ function handleBind(el){
   const [kind,id,field]=el.dataset.bind.split(':');
   const v = el.type==='checkbox' ? el.checked : el.type==='number' ? (el.value===''?null:Number(el.value)) : el.value;
   const b=book(); if(!b) return;
-  if(kind==='book'){ b[field]=v; saveBook(b); if(field==='title') document.querySelectorAll('#bookSel option[value="'+CSS.escape(b.id)+'"]').forEach(o=>o.textContent=v||'Naamloos boek'); return; }
+  if(kind==='book'){ b[field]=v; saveBook(b); if(field==='lang') applyLang(); if(field==='title') document.querySelectorAll('#bookSel option[value="'+CSS.escape(b.id)+'"]').forEach(o=>o.textContent=v||'Naamloos boek'); return; }
   if(kind==='beat'){ const x=(b.beats||[]).find(y=>y.id===id); if(x){ x[field]=v; saveBook(b); } return; }
   if(kind==='check'){ b.checklist=b.checklist||{}; b.checklist[id]=v; saveBook(b,300); return; }
   if(kind==='mkt'){ b.marketing=Object.assign({},b.marketing,{[id]:v}); saveBook(b); return; }
