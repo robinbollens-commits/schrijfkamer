@@ -161,6 +161,24 @@ textarea.prose:focus{box-shadow:none}
 .sprint{color:var(--pencil);font-family:var(--f-num)}
 body.focus .scenes,body.focus .side,body.focus .chlist,body.focus .edtools .meta,body.focus .syn,body.focus .synhr,body.focus .ms-head{display:none}
 body.focus .app{grid-template-columns:minmax(0,1fr)}
+.rwgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(24px,3vw,48px);align-items:start}
+.sheet.rw .inner{max-width:none}
+.rwref{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding:0 6px 24px 0;margin-bottom:24px;scrollbar-width:thin}
+.rwhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;position:sticky;top:0;background:var(--surface);padding:2px 0 10px;z-index:1}
+.rwhead .lbl{margin:0}
+.rwref .meter{display:block;margin:0 0 12px}
+.rwchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.rwtips{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 14px}
+.rwtips summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.rwtips ol{margin:8px 0 2px;padding-left:18px;display:grid;gap:5px}
+.rwp{font-family:var(--f-ms);font-size:15.5px;line-height:1.65;color:var(--muted);margin:0 0 4px;padding:8px 10px 8px 12px;border-left:2px solid transparent;border-radius:0 8px 8px 0;cursor:pointer;transition:background .15s,color .15s}
+.rwp:hover{background:var(--sunk);border-left-color:var(--line)}
+.rwp.done{color:var(--faint);opacity:.55;border-left-color:var(--ok)}
+.rwp.done::before{content:'✓ ';color:var(--ok);font-family:var(--f-ui,inherit);font-size:12px}
+.rwp em{color:var(--ink);font-style:italic}.rwp.done em{color:inherit}
+.rwwho{display:block;font-family:var(--f-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--pencil)}
+.chi.rwing .chn{color:var(--pencil)}
+body.focus .rwhead .btn,body.focus .rwchips{display:none}
 body.focus .ms{grid-template-columns:minmax(0,1fr)}
 body.focus .sheet{border-color:transparent;background:transparent}
 body.focus .edfoot{background:var(--paper)}
@@ -444,6 +462,8 @@ body.focus .bannerwrap{display:none}
 
 /* ---------- responsive ---------- */
 @media (max-width:1180px){
+  .rwgrid{grid-template-columns:minmax(0,1fr)}
+  .rwref{position:static;max-height:42vh;border-bottom:1px solid var(--line)}
   .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stats.six{grid-template-columns:repeat(3,minmax(0,1fr))}
   .grid2{grid-template-columns:minmax(0,1fr)}
@@ -1034,13 +1054,15 @@ function vManuscript(){
     <div class="empty"><strong>Je manuscript is nog leeg</strong><span>Maak een hoofdstuk aan, of importeer tekst uit je Claude-chat of een ander programma.</span><div class="row"><button class="btn primary" data-act="addCh">Eerste hoofdstuk</button><button class="btn" data-act="importOpen">Importeer tekst</button></div></div>`;
   const i=chs.indexOf(sel);
   const goal=sel.goal||0;
+  const rw=hasVersions(sel)&&prefs.rwShow!==false;
+  const rwAll=chs.filter(hasVersions), rwLine=rwAll.length?` · ${rwAll.length} met versies`:'';
   return `<div class="ms">
     <aside class="chlist" aria-label="Hoofdstukken">
       <div class="row"><span class="lbl" style="margin:0">Hoofdstukken</span><span class="spacer"></span><button class="btn ghost sm" data-act="importOpen">Importeer</button><button class="btn sm" data-act="addCh">+ Hoofdstuk</button></div>
-      <ol>${chs.map((c,n)=>`<li><button class="chi ${c.id===sel.id?'on':''}" data-act="selCh" data-id="${esc(c.id)}" ${c.id===sel.id?'aria-current="true"':''}>
+      <ol>${chs.map((c,n)=>`<li><button class="chi ${c.id===sel.id?'on':''} ${hasVersions(c)?'rwing':''}" data-act="selCh" data-id="${esc(c.id)}" ${c.id===sel.id?'aria-current="true"':''} ${hasVersions(c)?`title="${c.versions.length} ${c.versions.length===1?'eerdere versie':'eerdere versies'}"`:''}>
         <span class="chn">${n+1}</span><span class="cht" data-lbl="chapters:${esc(c.id)}:title">${esc(c.title||'Zonder titel')}</span>
         <span class="chw" data-chw="${esc(c.id)}">${nf(c.words)}</span><span class="dot st-${si(c.status)}" title="${esc(c.status||'Idee')}"></span></button></li>`).join('')}</ol>
-      <div class="chsum">${nf(total)} woorden · ≈ ${nf(Math.ceil(total/WORDS_PER_PAGE))} pagina’s</div>
+      <div class="chsum">${nf(total)} woorden · ≈ ${nf(Math.ceil(total/WORDS_PER_PAGE))} pagina’s${rwLine}</div>
     </aside>
     <section style="min-width:0">
       <div class="edtools">
@@ -1056,17 +1078,19 @@ function vManuscript(){
           <button class="btn danger" data-act="delCh" data-confirm="Zeker? Klik opnieuw">Verwijder</button>
         </span>
         ${aiOn()?`<button class="btn ai" data-act="aiOpen" data-from="${esc(sel.id)}" title="Wat schrijf ik hierna?">Wat nu?</button><button class="btn ai" data-act="checkOpen" title="Consistentiecheck">Controleer</button>`:''}
+        ${hasVersions(sel)?`<button class="btn" data-act="rwToggle">${rw?'Verberg versie':'Toon versies'}</button>`:''}
+        ${(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" data-confirm="Huidige tekst ernaast, leeg blad? Klik opnieuw" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
         <button class="btn" data-act="session" id="sessBtn">Start sessie</button>
         <button class="btn" data-act="sprint" id="sprintBtn">${S.sprint?'Stop sprint':'Sprint 25 min'}</button>
         <button class="btn" data-act="focus">${document.body.classList.contains('focus')?'Focus uit (Esc)':'Focusmodus'}</button>
       </div>
-      <div class="sheet"><div class="inner">
-        <p class="eyebrow ms-head">Hoofdstuk ${i+1}</p>
+      <div class="sheet ${rw?'rw':''}">${rw?`<div class="rwgrid">${rwRefHtml(sel)}`:''}<div class="inner">
+        <p class="eyebrow ms-head">Hoofdstuk ${i+1}${rw?' · je nieuwe tekst':''}</p>
         <input class="ch-title" type="text" id="ch-title" aria-label="Titel van het hoofdstuk" placeholder="Titel van het hoofdstuk" value="${esc(sel.title)}" data-bind="chapters:${esc(sel.id)}:title">
         <textarea class="syn grow" id="ch-syn" rows="2" aria-label="Samenvatting" placeholder="Samenvatting of scèneplan: wat gebeurt er, wie wil wat, wat verandert er?" data-bind="chapters:${esc(sel.id)}:synopsis">${esc(sel.synopsis)}</textarea>
         ${scenesHtml(sel)}
         <hr class="synhr">
-        <textarea class="prose grow" id="ch-text" aria-label="Tekst van het hoofdstuk" placeholder="Begin hier met schrijven…" spellcheck="true" lang="nl" data-bind="chapters:${esc(sel.id)}:text">${esc(sel.text)}</textarea>
+        <textarea class="prose grow" id="ch-text" aria-label="Tekst van het hoofdstuk" placeholder="${rw?'Herschrijf hier, in je eigen woorden. De vorige versie staat ernaast als referentie.':'Begin hier met schrijven…'}" spellcheck="true" lang="nl" data-bind="chapters:${esc(sel.id)}:text">${esc(sel.text)}</textarea>
         <div class="edfoot">
           <span><b id="lw">${nf(sel.words)}</b> woorden${goal?` van ${nf(goal)}`:''}</span>
           ${goal?`<span class="meter ${sel.words>=goal?'ok':''}" id="lgm"><i style="width:${Math.min(100,(sel.words||0)/goal*100)}%"></i></span>`:''}
@@ -1076,10 +1100,121 @@ function vManuscript(){
           <span class="sessclock"></span>
           <span class="sprint" id="sprint"></span>
         </div>
-      </div></div>
+      </div>${rw?'</div>':''}</div>
     </section>
   </div>`;
 }
+/* ---------- versies: een eerdere tekst als referentie naast je blad ---------- */
+// c.versions = [{id, label, at, text}] (oud → nieuw), c.rwRef = getoonde versie, c.rwDone = {versie-id: [passages]}.
+const RW_TIPS=[
+  'Kies per scène één perspectief en blijf erin. Zet “you” om naar de naam of “he/she” van je personage.',
+  'Labels zoals [Rynara] verdwijnen: laat uit de dialoog en de handeling blijken wie spreekt.',
+  'Acties tussen *sterretjes* worden gewone zinnen. Kies de sterkste, niet allemaal.',
+  'Een chat vertelt veel. Toon meer: gevoel via lichaam, handeling en wat iemand níét zegt.',
+  'Schrap herhalingen, uitleg die de lezer al kent en alles wat buiten het verhaal valt.',
+  'Vat lang heen-en-weer samen; bewaar de beste regels bijna letterlijk.',
+  'Klik een passage aan zodra je ze verwerkt hebt. Zo zie je waar je bent.',
+];
+const vDate=t=>new Date(t).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const hasVersions=c=>!!(c&&Array.isArray(c.versions)&&c.versions.length);
+function rwRefVersion(c){ const v=c.versions||[]; return v.find(x=>x.id===c.rwRef)||v[v.length-1]; }
+function rwParts(src){
+  const t=String(src||'').replace(/\r/g,'').trim(); if(!t) return [];
+  let parts=t.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  if(parts.length<4){
+    // geen witregels: per regel, met een los naamlabel samen met de regel erna
+    const lines=t.split('\n').map(x=>x.trim()).filter(Boolean); parts=[];
+    for(let k=0;k<lines.length;k++){
+      if(/^\[[^\]]{1,40}\]$/.test(lines[k])&&k+1<lines.length){ parts.push(lines[k]+'\n'+lines[k+1]); k++; } else parts.push(lines[k]);
+    }
+  }
+  return parts;
+}
+function rwFmt(p){
+  return p.split('\n').map(l=>{
+    const who=l.match(/^\[([^\]]{1,40})\]\s*$/); if(who) return `<span class="rwwho">${esc(who[1])}</span>`;
+    return esc(l).replace(/\*\*([^*\n]+)\*\*/g,'$1').replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+  }).join('<br>');
+}
+function rwProgress(c,v){
+  const n=rwParts(v.text).length, d=((c.rwDone||{})[v.id]||[]).filter(k=>k<n).length;
+  return {n,d,pct:n?Math.round(d/n*100):0};
+}
+const rwCountText=(v,pr)=>`${nf(countWords(v.text))} woorden · ${pr.d} van ${pr.n} passages verwerkt`;
+function rwRefHtml(c){
+  const v=rwRefVersion(c), parts=rwParts(v.text), done=new Set((c.rwDone||{})[v.id]||[]), pr=rwProgress(c,v);
+  // Volledige naam, of de voornaam als die geen lidwoord of titel is ("The grey enforcer" telt niet als "The").
+  const RW_STOP=/^(the|a|an|de|het|een|mr|mrs|ms|dr|sir|lady|lord|old|young)$/i;
+  const nameRe=t=>new RegExp(`(?<![\\p{L}])${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}(?![\\p{L}])`,'u');
+  const who=S.characters.filter(x=>{ const full=String(x.name||'').trim(), f=full.split(/\s+/)[0];
+    return full.length>1&&(nameRe(full).test(v.text)||(f.length>2&&!RW_STOP.test(f)&&nameRe(f).test(v.text))); });
+  const vs=[...c.versions].reverse();
+  return `<aside class="rwref" aria-label="Eerdere versie als referentie">
+    <div class="rwhead">
+      <select id="rw-ver" aria-label="Toon versie" style="max-width:100%">${vs.map(x=>`<option value="${esc(x.id)}" ${x.id===v.id?'selected':''}>${esc(x.label)} · ${vDate(x.at)} · ${nf(countWords(x.text))} w</option>`).join('')}</select>
+      <span class="faint" style="font-size:12.5px" id="rwcount">${rwCountText(v,pr)}</span><span class="spacer"></span>
+      <button class="btn ghost sm" data-act="rwSnap" title="Bewaar je huidige tekst als versie, zodat je er later op kunt terugvallen">Bewaar versie</button>
+      <button class="btn ghost sm" data-act="rwRestore" data-confirm="Huidige tekst wordt eerst als versie bewaard. Klik opnieuw" title="Zet deze versie terug als hoofdstuktekst">Zet deze terug</button>
+      <button class="btn ghost sm" data-act="rwDelVer" data-confirm="Versie verwijderen? Klik opnieuw" title="Verwijder deze versie">×</button></div>
+    <span class="meter ${pr.pct===100?'ok':''}" id="rwmeter"><i style="width:${pr.pct}%"></i></span>
+    ${who.length?`<div class="rwchips">${who.map(x=>`<span class="chip" title="${esc(cut([x.role,x.appearance,x.personality].filter(Boolean).join(' · '),260))}">${esc(x.name)}</span>`).join('')}</div>`:''}
+    <details class="rwtips" ${prefs.rwTips===false?'':'open'}><summary>Tips: van chat naar proza</summary><ol>${RW_TIPS.map(t=>`<li>${esc(t)}</li>`).join('')}</ol></details>
+    <div class="rwps">${parts.length?parts.map((p,k)=>`<p class="rwp ${done.has(k)?'done':''}" data-act="rwTick" data-k="${k}">${rwFmt(p)}</p>`).join(''):'<p class="faint">Deze versie is leeg.</p>'}</div>
+  </aside>`;
+}
+function rwChapter(){ return S.chapters.find(c=>c.id===S.sel.chapters); }
+// Bewaart een tekst als nieuwe versie. Geeft false als het hoofdstuk te groot zou worden om veilig op te slaan.
+function addVersion(c,text,label){
+  const v={id:newId(),label,at:Date.now(),text:String(text||'')};
+  const size=JSON.stringify(c).length+v.text.length;
+  if(size>800000){ toast('Er passen geen versies meer bij dit hoofdstuk. Verwijder eerst een oude versie.'); return null; }
+  c.versions=[...(c.versions||[]),v]; return v;
+}
+function rwStart(mode){
+  const c=rwChapter(); if(!c||!(c.text||'').trim()) return;
+  const v=addVersion(c,c.text,hasVersions(c)?`Versie ${c.versions.length+1}`:'Origineel'); if(!v) return;
+  c.rwRef=v.id;
+  if(mode==='blank'){ c.text=''; c.words=0; }
+  c.updated=Date.now(); saveEnt('chapters',c,0); prefs.rwShow=true; savePrefs(); renderMain(); $('#ch-text')?.focus();
+  toast(mode==='blank'?`“${v.label}” staat ernaast. Je begint met een leeg blad.`:`“${v.label}” staat ernaast. Je bewerkt een kopie.`);
+}
+function rwSnap(){
+  const c=rwChapter(); if(!c) return;
+  const last=(c.versions||[])[c.versions.length-1];
+  if(!(c.text||'').trim()){ toast('Je huidige tekst is leeg; er valt niets te bewaren.'); return; }
+  if(last&&last.text===c.text){ toast('Deze tekst is al als versie bewaard.'); return; }
+  const v=addVersion(c,c.text,`Versie ${c.versions.length+1}`); if(!v) return;
+  saveEnt('chapters',c,0); renderMain(); toast(`Bewaard als “${v.label}”`);
+}
+function rwTick(k,el){
+  const c=rwChapter(); if(!c||!hasVersions(c)) return;
+  if(String(getSelection()||'').trim()) return; // tekst selecteren om te kopiëren is geen aanvinken
+  const v=rwRefVersion(c), map=Object.assign({},c.rwDone||{}), set=new Set(map[v.id]||[]);
+  set.has(k)?set.delete(k):set.add(k);
+  map[v.id]=[...set].sort((a,b)=>a-b); c.rwDone=map; saveEnt('chapters',c,600);
+  el.classList.toggle('done',set.has(k));
+  const pr=rwProgress(c,v), cnt=$('#rwcount'), m=$('#rwmeter');
+  if(cnt) cnt.textContent=rwCountText(v,pr);
+  if(m){ m.firstElementChild.style.width=pr.pct+'%'; m.classList.toggle('ok',pr.pct===100); }
+}
+function rwRestore(){
+  const c=rwChapter(); if(!hasVersions(c)) return;
+  const v=rwRefVersion(c);
+  if((c.text||'').trim()&&c.text!==v.text&&!c.versions.some(x=>x.text===c.text)){
+    if(!addVersion(c,c.text,`Vóór terugzetten`)) return;
+  }
+  c.text=v.text; c.words=countWords(c.text); c.updated=Date.now();
+  saveEnt('chapters',c,0); render(); toast(`“${v.label}” is weer je hoofdstuktekst. Niets is verloren.`);
+}
+function rwDelVer(){
+  const c=rwChapter(); if(!hasVersions(c)) return;
+  const v=rwRefVersion(c);
+  c.versions=c.versions.filter(x=>x!==v);
+  if(c.rwDone){ const m=Object.assign({},c.rwDone); delete m[v.id]; c.rwDone=m; }
+  c.rwRef=(c.versions[c.versions.length-1]||{}).id||null;
+  saveEnt('chapters',c,0); render(); toast(`“${v.label}” verwijderd`);
+}
+
 function scenesHtml(c){
   const sc=c.scenes||[], done=sc.filter(x=>x.done).length;
   return `<details class="scenes" ${S.scenesOpen?'open':''}><summary>Scènes <span class="faint" style="font-weight:400">${sc.length?`${done} van ${sc.length} geschreven`:'nog geen'}</span></summary>
@@ -2648,7 +2783,7 @@ async function runFeedback(){
 
 /* ================= zoeken en vervangen ================= */
 // Velden met id's, keuzelijsten of tellers worden nooit aangeraakt.
-const FR_SKIP=new Set(['id','pov','place','chapterId','img','cover','banners','created','updated','status','structure','type','role','importance','kind','src','order','words','done','pct','log','checklist','start','end']);
+const FR_SKIP=new Set(['id','pov','place','chapterId','img','cover','banners','created','updated','status','structure','type','role','importance','kind','src','order','words','done','pct','log','checklist','start','end','rwRef','rwDone','at']);
 const FR_SCOPES=[['manuscript','Manuscript'],['entities','Personages en wereld'],['plot','Plot, boekgegevens en marketing'],['ideas','Ideeën, research en sessies']];
 function frRegex(q,F){
   const src=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -2796,6 +2931,12 @@ const ACTS={
   closeModal:(d,a,e)=>{ if(d.self&&e.target!==a) return; closeModal(); },
   sample:()=>loadSample(),
   frOpen:()=>openFr(),
+  rwStart:(d,a)=>{ if(d.m==='blank'&&!armed(a)) return; rwStart(d.m); },
+  rwToggle:()=>{ const c=rwChapter(); prefs.rwShow=!(hasVersions(c)&&prefs.rwShow!==false); savePrefs(); renderMain(); },
+  rwTick:(d,a)=>rwTick(Number(d.k),a),
+  rwSnap:()=>rwSnap(),
+  rwRestore:(d,a)=>{ if(!armed(a)) return; rwRestore(); },
+  rwDelVer:(d,a)=>{ if(!armed(a)) return; rwDelVer(); },
   frGo:(d,a)=>{ if(!S.fr.r&&!armed(a)) return; frGo(); },
   frUndo:()=>frUndo(),
   selCh:d=>{ S.sel.chapters=d.id; renderMain(); if(innerWidth<900) $('.sheet')?.scrollIntoView({block:'start'}); },
@@ -2941,6 +3082,7 @@ mainEl.addEventListener('input',e=>{
 });
 mainEl.addEventListener('change',e=>{
   const el=e.target;
+  if(el.id==='rw-ver'){ const c=rwChapter(); if(c){ c.rwRef=el.value; saveEnt('chapters',c,600); renderMain(); } return; }
   if(el.id==='plotStruct'){ const b=book(); const used=(b.beats||[]).some(x=>x.notes||x.chapterId);
     if(used){ S.confirmStruct=el.value; renderMain(); } else applyStructure(el.value); return; }
   if(el.dataset.rerender!==undefined){ render(); }
@@ -2951,7 +3093,7 @@ mainEl.addEventListener('keydown',e=>{
 $('#modal').addEventListener('input',e=>{ if(e.target.id==='rf-min'||e.target.id==='rf-words') updateWph(); });
 mainEl.addEventListener('change',e=>{ if(e.target.id==='gen-kind') S.gen.kind=e.target.value; if(e.target.id==='led-dir'){ S.ledForm.dir=e.target.value; S.ledForm.cat=''; renderMain(); } });
 mainEl.addEventListener('input',e=>{ const id=e.target.id||''; if(id.startsWith('led-')&&id!=='led-dir') S.ledForm[id.slice(4)]=e.target.value; });
-mainEl.addEventListener('toggle',e=>{ if(e.target.classList&&e.target.classList.contains('scenes')) S.scenesOpen=e.target.open; },true);
+mainEl.addEventListener('toggle',e=>{ if(e.target.classList&&e.target.classList.contains('scenes')) S.scenesOpen=e.target.open; if(e.target.classList&&e.target.classList.contains('rwtips')){ prefs.rwTips=e.target.open; savePrefs(); } },true);
 $('#modal').addEventListener('input',e=>{ if(e.target.id==='imp-text') importPreview(); });
 $('#modal').addEventListener('change',async e=>{
   if(e.target.id==='imp-mode') importPreview();
