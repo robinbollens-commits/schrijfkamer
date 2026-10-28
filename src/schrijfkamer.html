@@ -180,6 +180,8 @@ body.focus .app{grid-template-columns:minmax(0,1fr)}
 .rwp em{color:var(--ink);font-style:italic}.rwp.done em{color:inherit}
 .rwwho{display:block;font-family:var(--f-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--pencil)}
 .chi.rwing .chn{color:var(--pencil)}
+.chbeats{margin:6px 0 10px;font-size:13.5px;line-height:1.5}.chbeats p{margin:0 0 6px}
+body.focus .chbeats{display:none}
 body.focus .rwhead .btn,body.focus .rwchips{display:none}
 body.focus .ms{grid-template-columns:minmax(0,1fr)}
 body.focus .sheet{border-color:transparent;background:transparent}
@@ -556,7 +558,8 @@ const ACT_DEF = [['Akte 1','Opzet: de gewone wereld, het voorval dat alles in ga
   ['Akte 2A','De belofte van het uitgangspunt: de held verkent de nieuwe situatie, tot het midden alles verandert.',20,50],
   ['Akte 2B','De druk stijgt: tegenstanders komen dichterbij tot alles verloren lijkt.',50,80],
   ['Akte 3','De finale: de held past toe wat ze leerde en lost het op.',80,100]];
-const actOf = pct=>{ const p=pct||0; return p>=80?3:p>=50?2:p>=20?1:0; };
+const actsFor = b=>(STRUCTURES[b&&b.structure]||{}).acts||ACT_DEF;
+const actOf = (pct,defs=ACT_DEF)=>{ const p=pct||0; let a=0; defs.forEach((d,i)=>{ if(p>=d[2]) a=i; }); return a; };
 const RS_STATUS = ['Te onderzoeken','Bezig','Onderzocht'];
 const RS_CAT = ['Geschiedenis','Religie en mythologie','Architectuur','Kleding','Eten en drinken','Economie en beroepen','Politiek en recht','Geografie en natuur','Wetenschap en techniek','Gezondheid','Vervoer','Cultuur en kunst','Militair','Taal en namen','Overig'];
 const MKT_TOPICS = [
@@ -625,6 +628,73 @@ const STRUCTURES = {
     ['Tweede knelpunt',62,'Alles mislukt; de held staat er alleen voor.'],
     ['Tweede keerpunt',80,'De held vindt het laatste puzzelstuk.'],
     ['Resolutie',99,'Het einde, het spiegelbeeld van de haak.'],
+  ]},
+  sixty: { name:'60 hoofdstukken in 4 aktes', note:'Een vuistregel uit de schrijfwereld, geen wet. Elk moment staat op een percentage van je boek, dus het werkt ook met minder hoofdstukken: neem wat je verhaal dient en schrap de rest.',
+    acts:[['Akte 1: opzet','De wereld, de personages, en het voorval dat alles in gang zet.',0,25],
+      ['Akte 2A: stijgende actie','Nieuwe regels, nieuwe banden, tot een grote wending alles verandert.',25,50],
+      ['Akte 2B: hoge inzet','Vertrouwen breekt, de tegenstander wint terrein, tot het dieptepunt.',50,75],
+      ['Akte 3: climax en ontknoping','De finale, de nasleep en een nieuw evenwicht.',75,100]],
+    beats:[
+    ["Openingsscène en haak",1,"Begin midden in iets dat vragen oproept: de lezer moet willen weten wat er gebeurt."],
+    ["Het dagelijks leven van je hoofdpersonage",2,"Toon de gewone wereld en wat er ontbreekt, zodat de verandering straks voelbaar is."],
+    ["Een glimp van het innerlijke conflict",4,"Laat de wonde of het trauma doorschemeren, zonder het al uit te leggen."],
+    ["De beste vriend of bondgenoot",6,"Iemand bij wie je personage zichzelf kan zijn. Die band wordt later op de proef gesteld."],
+    ["De liefde of de rivaal verschijnt",8,"De persoon die je hoofdpersonage uit evenwicht brengt."],
+    ["De wereld en de setting",9,"Leg de regels van je wereld vast via handeling, niet via uitleg."],
+    ["Eerste spanning tussen de hoofdpersonen",11,"Botsende doelen of karakters: geef ze een reden om te schuren."],
+    ["Het doel wordt duidelijk",12,"Wat wil je personage, en wat denkt het daarvoor nodig te hebben?"],
+    ["De tegenstander",14,"Introduceer de antagonist of de tegenkracht, met een eigen logica."],
+    ["Het aanzettend incident",16,"Het voorval dat alles in gang zet. Daarna is niets meer zoals voordien."],
+    ["Wat er op het spel staat",18,"Maak duidelijk wat er verloren gaat als je personage faalt."],
+    ["Je hoofdpersonage weigert",19,"Angst, twijfel of plicht houdt je personage tegen."],
+    ["Gedwongen in het conflict",21,"De omstandigheden laten geen keuze meer."],
+    ["De eerste grote beslissing",22,"Je personage kiest zelf, en die keuze heeft een prijs."],
+    ["Keerpunt: einde van akte 1",24,"De drempel over. De oude wereld ligt achter je personage."],
+    ["Nieuwe omgeving, nieuwe regels",26,"Je personage moet zich aanpassen aan een onbekende situatie."],
+    ["Training en aanpassing",28,"Je personage leert, faalt en groeit. Laat de lezer meegenieten."],
+    ["Banden met bijpersonages",29,"Bouw relaties op die later gewicht krijgen."],
+    ["Een eerste kleine overwinning",31,"Een succes dat vertrouwen geeft, misschien te veel."],
+    ["Romantische of emotionele ontwikkeling",32,"De belangrijkste relatie zet een stap vooruit."],
+    ["Geheimen komen bovendrijven",34,"Een hint dat niet alles is wat het lijkt."],
+    ["Een vermoeden van rivaliteit of verraad",36,"Plant een zaadje van wantrouwen."],
+    ["Een tussentijds conflict",38,"Een confrontatie die de inzet verhoogt, maar nog niet beslist."],
+    ["Flashback of achtergrond",39,"Onthul iets uit het verleden dat het heden anders doet lezen."],
+    ["Groeiend zelfvertrouwen",41,"Toon hoe ver je personage al gekomen is sinds het begin."],
+    ["De liefde of rivaal wordt zachter",42,"Een barst in het pantser: een moment van echte nabijheid."],
+    ["De dreiging van buitenaf groeit",44,"De tegenstander zet een stap. De klok begint te tikken."],
+    ["De groep valt uiteen",46,"Een ruzie of misverstand splijt de bondgenoten."],
+    ["Valse veiligheid",48,"Even lijkt alles goed te komen. De lezer voelt dat het niet klopt."],
+    ["Midpoint: grote wending of onthulling",49,"Een onthulling die het doel of de inzet volledig verandert."],
+    ["De nasleep van de wending",51,"Je personage moet de schok verwerken."],
+    ["Het vertrouwen is gebroken",52,"Een relatie raakt beschadigd door wat er net bleek."],
+    ["Je hoofdpersonage staat alleen",54,"Afgesneden van steun, op zichzelf aangewezen."],
+    ["De tegenstander wint terrein",56,"Laat zien hoe sterk de tegenkracht werkelijk is."],
+    ["Emotionele confrontatie",57,"Een uitgesproken botsing in de liefde of de vriendschap."],
+    ["Hergroeperen, een nieuw plan",59,"Je personage raapt zichzelf bijeen en kiest een nieuwe aanpak."],
+    ["Voorbereiding",61,"Trainen, plannen, middelen of bondgenoten bijeenbrengen."],
+    ["Offer of verlies van een bijpersonage",62,"Een verlies dat de prijs van de strijd voelbaar maakt."],
+    ["Een verborgen waarheid komt uit",64,"Een geheim dat alles in een ander licht zet."],
+    ["Liefdesverklaring of emotioneel hoogtepunt",66,"Het moment waarop gevoelens uitgesproken worden."],
+    ["De missie begint",68,"Het plan wordt uitgevoerd."],
+    ["Het loopt mis",69,"Wat kan mislukken, mislukt."],
+    ["Groot verraad of gevangenschap",71,"De zwaarste klap tot nu toe."],
+    ["Het dieptepunt",72,"Alles lijkt verloren. Vaak sterft er iets, letterlijk of figuurlijk."],
+    ["Hervonden vastberadenheid",74,"Je personage vindt het inzicht of de moed om door te gaan."],
+    ["De laatste strategie",76,"Het plan voor de finale, gebouwd op wat je personage geleerd heeft."],
+    ["Bondgenoten verzamelen",78,"Oude en nieuwe vrienden scharen zich achter je personage."],
+    ["Op weg naar de eindconfrontatie",79,"De reis of aanloop naar de finale."],
+    ["Stilte voor de storm",81,"Emotionele momenten: wat staat er voor elk personage op het spel?"],
+    ["Eerste botsing met de tegenstander",82,"De finale begint, en het gaat niet zoals gepland."],
+    ["Verlies of tegenslag in de strijd",84,"Een prijs die betaald moet worden."],
+    ["Je hoofdpersonage overstijgt zichzelf",86,"De groei uit het hele boek komt samen in één daad."],
+    ["De beslissende confrontatie",88,"Alles komt samen. Je personage handelt; het toeval beslist niet."],
+    ["De tegenstander verslagen",89,"De ontknoping van het uiterlijke conflict."],
+    ["De directe nasleep",91,"Adem uit: wie is er nog, wat is er veranderd?"],
+    ["Waarheden en geheimen opgehelderd",92,"Losse draden worden afgehecht."],
+    ["De relatie komt tot rust",94,"De ontknoping van het innerlijke of romantische verhaal."],
+    ["Een nieuw evenwicht",96,"Toon hoe de wereld en je personage veranderd zijn."],
+    ["Epiloog met een blik vooruit",98,"Een hint naar wat nog komt."],
+    ["Slotscène: de cirkel rond",99,"Spiegel de opening: zo ver is je personage gekomen."],
   ]},
   free: { name:'Eigen structuur', beats:[] },
 };
@@ -1103,6 +1173,7 @@ function vManuscript(){
         <p class="eyebrow ms-head">Hoofdstuk ${i+1}${rw?' · je nieuwe tekst':''}</p>
         <input class="ch-title" type="text" id="ch-title" aria-label="Titel van het hoofdstuk" placeholder="Titel van het hoofdstuk" value="${esc(sel.title)}" data-bind="chapters:${esc(sel.id)}:title">
         <textarea class="syn grow" id="ch-syn" rows="2" aria-label="Samenvatting" placeholder="Samenvatting of scèneplan: wat gebeurt er, wie wil wat, wat verandert er?" data-bind="chapters:${esc(sel.id)}:synopsis">${esc(sel.synopsis)}</textarea>
+        ${chBeatsHtml(sel)}
         ${scenesHtml(sel)}
         <hr class="synhr">
         <textarea class="prose grow" id="ch-text" aria-label="Tekst van het hoofdstuk" placeholder="${rw?'Herschrijf hier, in je eigen woorden. De vorige versie staat ernaast als referentie.':'Begin hier met schrijven…'}" spellcheck="true" data-bind="chapters:${esc(sel.id)}:text">${esc(sel.text)}</textarea>
@@ -1231,6 +1302,11 @@ function rwDelVer(){
   saveEnt('chapters',c,0); render(); toast(`“${v.label}” verwijderd`);
 }
 
+function chBeatsHtml(c){
+  const b=book(), all=[...(b.beats||[])].sort((x,y)=>(x.pct||0)-(y.pct||0)), mine=all.filter(x=>x.chapterId===c.id);
+  if(!mine.length) return '';
+  return `<div class="chbeats">${mine.map(x=>`<p><span class="lbl" style="margin:0">Plotmoment ${all.indexOf(x)+1}</span> <b>${esc(x.name)}</b>${x.hint?` <span class="muted">· ${esc(x.hint)}</span>`:''}${x.notes?`<br><span class="faint">Jouw plan: ${esc(cut(x.notes,220))}</span>`:''}</p>`).join('')}</div>`;
+}
 function scenesHtml(c){
   const sc=c.scenes||[], done=sc.filter(x=>x.done).length;
   return `<details class="scenes" ${S.scenesOpen?'open':''}><summary>Scènes <span class="faint" style="font-weight:400">${sc.length?`${done} van ${sc.length} geschreven`:'nog geen'}</span></summary>
@@ -1312,7 +1388,8 @@ function vPlot(){
   const scale=Math.max(target,total,1);
   const beats=[...(b.beats||[])].sort((a,c)=>(a.pct||0)-(c.pct||0));
   let lastAct=-1;
-  const actHead=x=>{ const a=actOf(x.pct); if(a===lastAct) return ''; lastAct=a; const A=ACT_DEF[a];
+  const defs=actsFor(b), st=STRUCTURES[b.structure]||{};
+  const actHead=x=>{ const a=actOf(x.pct,defs); if(a===lastAct) return ''; lastAct=a; const A=defs[a];
     return `<div class="acth"><h3>${A[0]}<span>${A[2]}–${A[3]}%</span></h3><p>${A[1]}</p></div>`; };
   let acc=0; const pos={};
   S.chapters.forEach((c,n)=>{ pos[c.id]={start:acc,n:n+1,w:c.words||0}; acc+=c.words||0; });
@@ -1322,13 +1399,14 @@ function vPlot(){
     <div class="row"><label for="plotStruct" class="muted" style="font-size:13px">Structuur</label>
     <select id="plotStruct" style="width:auto">${Object.entries(STRUCTURES).map(([k,v])=>`<option value="${k}" ${k===(b.structure||'free')?'selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
   </header>
-  ${S.confirmStruct?`<div class="confirm"><span>Overschakelen naar <b>${esc(STRUCTURES[S.confirmStruct].name)}</b> vervangt je huidige momenten, ook je notities en koppelingen.</span><span class="spacer"></span>
-    <button class="btn" data-act="cancelStruct">Annuleer</button><button class="btn primary" data-act="applyStruct">Vervang momenten</button></div>`:''}
+  ${st.note?`<p class="muted" style="font-size:13.5px;margin:-6px 0 14px">${esc(st.note)}</p>`:''}
+  ${S.chapters.length&&beats.some(x=>!x.chapterId)?`<div class="row" style="margin:-4px 0 14px"><button class="btn sm" data-act="autoLink" title="Koppel elk moment zonder hoofdstuk aan het hoofdstuk op dezelfde plek in je boek">Koppel momenten aan hoofdstukken</button>
+    <span class="faint" style="font-size:12.5px">Op basis van de plaats in je boek (${S.chapters.length} hoofdstukken). Je kunt elke koppeling daarna aanpassen.</span></div>`:''}
   <section class="panel" style="margin-bottom:16px">
     <h2>Tijdlijn<span class="aside">${nf(total)} van ${nf(target)} woorden</span></h2>
     <div class="tl" aria-hidden="true">
       ${S.chapters.map(c=>`<span class="seg" style="left:${pos[c.id].start/scale*100}%;width:${(c.words||0)/scale*100}%" title="Hoofdstuk ${pos[c.id].n}: ${esc(c.title||'Zonder titel')} (${nf(c.words)} w)"></span>`).join('')}
-      ${target?ACT_DEF.slice(1).map(A=>`<span class="actline" style="left:${clamp(A[2]*target/scale,0,100)}%"></span>`).join(''):''}
+      ${target?defs.slice(1).map(A=>`<span class="actline" style="left:${clamp(A[2]*target/scale,0,100)}%"></span>`).join(''):''}
       ${beats.map((x,n)=>`<span class="tick" style="left:${clamp((x.pct||0)*target/scale,0,99.4)}%" title="${esc(x.name)} · ${x.pct}%"><b>${n+1}</b></span>`).join('')}
     </div>
     <div class="tlx"><span>0</span><span>${nf(scale/2)}</span><span>${nf(scale)} woorden</span></div>
@@ -1357,7 +1435,19 @@ function vPlot(){
   </section>`;
 }
 const mkBeats=k=>STRUCTURES[k].beats.map(([name,pct,hint])=>({id:newId(),name,pct,hint,notes:'',chapterId:''}));
-function applyStructure(k){ const b=book(); b.structure=k; b.beats=mkBeats(k); S.confirmStruct=null; saveBook(b,0); renderMain(); }
+// Elke structuur bewaart haar eigen momenten, notities en koppelingen: wisselen gaat niets verloren.
+function applyStructure(k){
+  const b=book(); if(!STRUCTURES[k]||k===b.structure) return;
+  const kept=Object.assign({},b.beatsBy||{}); if(b.structure) kept[b.structure]=b.beats||[];
+  b.beatsBy=kept; b.structure=k; b.beats=kept[k]&&kept[k].length?kept[k]:mkBeats(k); delete b.beatsBy[k];
+  S.confirmStruct=null; saveBook(b,0); renderMain();
+  toast(`${STRUCTURES[k].name}: je vorige momenten blijven bewaard als je terugschakelt.`);
+}
+function autoLink(){
+  const b=book(), N=S.chapters.length; if(!N) return; let n=0;
+  (b.beats||[]).forEach(x=>{ if(x.chapterId) return; const i=Math.min(N-1,Math.floor((x.pct||0)/100*N)); x.chapterId=S.chapters[i].id; n++; });
+  saveBook(b,0); renderMain(); toast(`${n} ${n===1?'moment':'momenten'} gekoppeld`);
+}
 
 /* ---------- personages & wereld ---------- */
 function fieldHtml(kind,o,f){
@@ -3048,6 +3138,7 @@ const ACTS={
   noteFilter:d=>{ S.noteFilter=d.v; renderMain(); },
   delNote:(d,a)=>{ if(!armed(a)) return; S.notes=S.notes.filter(n=>n.id!==d.id); removeDoc(P.col(S.activeId,'notes')+'/'+d.id); render(); },
   applyStruct:()=>applyStructure(S.confirmStruct),
+  autoLink:()=>autoLink(),
   cancelStruct:()=>{ S.confirmStruct=null; renderMain(); },
   addBeat:()=>{ const b=book(); b.beats=b.beats||[]; const x={id:newId(),name:'Nieuw moment',pct:50,hint:'',notes:'',chapterId:''}; b.beats.push(x); saveBook(b,0); renderMain(); },
   delBeat:(d,a)=>{ if(!armed(a)) return; const b=book(); b.beats=(b.beats||[]).filter(x=>x.id!==d.id); saveBook(b,0); renderMain(); },
@@ -3123,8 +3214,7 @@ mainEl.addEventListener('input',e=>{
 mainEl.addEventListener('change',e=>{
   const el=e.target;
   if(el.id==='rw-ver'){ const c=rwChapter(); if(c){ c.rwRef=el.value; saveEnt('chapters',c,600); renderMain(); } return; }
-  if(el.id==='plotStruct'){ const b=book(); const used=(b.beats||[]).some(x=>x.notes||x.chapterId);
-    if(used){ S.confirmStruct=el.value; renderMain(); } else applyStructure(el.value); return; }
+  if(el.id==='plotStruct'){ applyStructure(el.value); return; }
   if(el.dataset.rerender!==undefined){ render(); }
 });
 mainEl.addEventListener('keydown',e=>{
