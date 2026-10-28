@@ -166,6 +166,8 @@ body.focus .app{grid-template-columns:minmax(0,1fr)}
 .rwref{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding:0 6px 24px 0;margin-bottom:24px;scrollbar-width:thin}
 .rwhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;position:sticky;top:0;background:var(--surface);padding:2px 0 10px;z-index:1}
 .rwhead .lbl{margin:0}
+.rwhead #rw-ver{flex:1 1 100%}
+.rwhead #rwcount{flex:1 1 100%;order:9}
 .rwref .meter{display:block;margin:0 0 12px}
 .rwchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .rwtips{font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 14px}
@@ -1092,7 +1094,7 @@ function vManuscript(){
         </span>
         ${aiOn()?`<button class="btn ai" data-act="aiOpen" data-from="${esc(sel.id)}" title="Wat schrijf ik hierna?">Wat nu?</button><button class="btn ai" data-act="checkOpen" title="Consistentiecheck">Controleer</button>`:''}
         ${hasVersions(sel)?`<button class="btn" data-act="rwToggle">${rw?'Verberg versie':'Toon versies'}</button>`:''}
-        ${(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" data-confirm="Huidige tekst ernaast, leeg blad? Klik opnieuw" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
+        ${(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
         <button class="btn" data-act="session" id="sessBtn">Start sessie</button>
         <button class="btn" data-act="sprint" id="sprintBtn">${S.sprint?'Stop sprint':'Sprint 25 min'}</button>
         <button class="btn" data-act="focus">${document.body.classList.contains('focus')?'Focus uit (Esc)':'Focusmodus'}</button>
@@ -2951,7 +2953,7 @@ const ACTS={
   closeModal:(d,a,e)=>{ if(d.self&&e.target!==a) return; closeModal(); },
   sample:()=>loadSample(),
   frOpen:()=>openFr(),
-  rwStart:(d,a)=>{ if(d.m==='blank'&&!armed(a)) return; rwStart(d.m); },
+  rwStart:d=>rwStart(d.m),
   rwToggle:()=>{ const c=rwChapter(); prefs.rwShow=!(hasVersions(c)&&prefs.rwShow!==false); savePrefs(); renderMain(); },
   rwTick:(d,a)=>rwTick(Number(d.k),a),
   rwSnap:()=>rwSnap(),
