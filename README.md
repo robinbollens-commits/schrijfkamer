@@ -17,9 +17,9 @@ De app start leeg. Je kiest dan zelf:
 
 ## Updates
 
-Vanaf versie 1.0.3 zoekt de app zelf naar updates: bij het opstarten en daarna om de zes uur. Een nieuwe versie wordt op de achtergrond gedownload en geïnstalleerd zodra je de app sluit. Wil je niet wachten, klik dan op **Nu herstarten** (in de zijbalk of bij *Instellingen → Updates*). Je teksten worden eerst bewaard.
+De app zoekt zelf naar nieuwe versies: bij het opstarten en daarna om de zes uur. Is er een nieuwe versie, dan verschijnt linksonder **Update naar x.y.z**. Eén klik downloadt de update, installeert ze en start Schrijfkamer opnieuw. Je teksten worden eerst bewaard.
 
-Dit werkt alleen als de installers openbaar te downloaden zijn (een publieke repository). Bij een privé-repository meldt de app dat er geen openbare updates te vinden zijn, en installeer je nieuwe versies zelf.
+Dit werkt alleen als de repository openbaar is. Bij een privé-repository meldt de app dat er geen openbare updates te vinden zijn, en installeer je nieuwe versies zelf.
 
 ## Je gegevens
 

@@ -880,7 +880,7 @@ function renderSide(){
       <button class="btn icon" data-act="newBook" aria-label="Nieuw boek" title="Nieuw boek">+</button></div></div>`:''}
     </div>
     ${b?`<nav class="nav" aria-label="Onderdelen">${NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${S.view===k?'on':''}" ${S.view===k?'aria-current="page"':''}><span>${l}</span>${counts[k]!=null?`<span class="cnt">${counts[k]}</span>`:''}</button>`).join('')}</nav>`:''}
-    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div>${S.upd&&S.upd.state==='ready'?`<button class="btn sm primary" data-act="updInstall" style="justify-self:start">Update ${esc(S.upd.version||'')}: herstart</button>`:''}<div class="row" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Ctrl+H">Zoek en vervang</button>':''}<button class="btn ghost sm" data-act="settings">Instellingen</button></div></div>`;
+    <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div>${updSideHtml()}<div class="row" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Ctrl+H">Zoek en vervang</button>':''}<button class="btn ghost sm" data-act="settings">Instellingen</button></div></div>`;
   syncState(); refreshSessionUi();
 }
 function updateCounts(){
@@ -2369,21 +2369,30 @@ function updText(u){
     case 'disabled': return 'Automatische updates werken alleen in de geïnstalleerde app.';
     case 'checking': return 'Bezig met zoeken naar updates…';
     case 'current': return 'Je hebt de nieuwste versie.';
+    case 'available': return `Versie ${esc(u.version||'')} is beschikbaar.`;
     case 'downloading': return `Versie ${esc(u.version||'')} wordt gedownload${u.percent?` (${u.percent}%)`:''}…`;
-    case 'ready': return `Versie ${esc(u.version||'')} staat klaar. Ze wordt geïnstalleerd als je de app sluit, of nu meteen.`;
+    case 'ready': case 'installing': return 'Bezig met installeren. Schrijfkamer start zo opnieuw…';
     case 'error': return `Updates zoeken lukte niet: ${esc(u.message||'onbekende fout')}`;
-    default: return 'Updates worden automatisch gezocht en op de achtergrond gedownload.';
+    default: return 'Schrijfkamer zoekt zelf naar updates. Je installeert ze met één klik.';
   }
 }
 function updHtml(){
   const u=S.upd||{};
-  return `<span class="muted" style="font-size:13.5px;flex:1">${updText(u)}</span>${u.state==='ready'?'<button class="btn primary sm" data-act="updInstall">Nu herstarten</button>'
-    :u.state==='disabled'||u.state==='downloading'||u.state==='checking'?'':'<button class="btn sm" data-act="updCheck">Zoek naar updates</button>'}`;
+  return `<span class="muted" style="font-size:13.5px;flex:1">${updText(u)}</span>${u.state==='available'?`<button class="btn primary sm" data-act="updInstall">Update naar ${esc(u.version||'')}</button>`
+    :['disabled','downloading','checking','ready','installing'].includes(u.state)?'':'<button class="btn sm" data-act="updCheck">Zoek naar updates</button>'}`;
+}
+function updSideHtml(){
+  const u=S.upd||{};
+  if(u.state==='available') return `<button class="btn sm primary" data-act="updInstall" style="justify-self:start">Update naar ${esc(u.version||'')}</button>`;
+  if(u.state==='downloading') return `<button class="btn sm" disabled style="justify-self:start">Update downloaden… ${u.percent||0}%</button>`;
+  if(u.state==='ready'||u.state==='installing') return `<button class="btn sm" disabled style="justify-self:start">Update installeren…</button>`;
+  return '';
 }
 function updStatus(u){
   const was=S.upd&&S.upd.state; S.upd=u;
   const el=document.getElementById('ds-upd'); if(el) el.innerHTML=updHtml();
-  if(u.state==='ready'&&was!=='ready'){ renderSide(); toast(`Versie ${u.version} staat klaar`,{label:'Nu herstarten',act:'updInstall'}); }
+  if(u.state!==was||u.state==='downloading') renderSide();
+  if(u.state==='available'&&was!=='available') toast(`Versie ${u.version} is beschikbaar`,{label:'Update',act:'updInstall'});
 }
 if(DESK&&DESK.update){ DESK.update.onStatus(updStatus); DESK.update.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
 
@@ -2985,7 +2994,7 @@ const ACTS={
   dsModels:()=>loadDesktopModels(),
   dsOpenData:()=>DESK&&DESK.files.openDataDir(),
   updCheck:()=>{ if(DESK&&DESK.update){ updStatus(Object.assign({},S.upd,{state:'checking'})); DESK.update.check().then(updStatus).catch(()=>{}); } },
-  updInstall:()=>{ if(DESK&&DESK.update){ flushAll(); toast('Schrijfkamer wordt bijgewerkt en start zo opnieuw…'); DESK.update.install(); } },
+  updInstall:()=>{ if(DESK&&DESK.update){ flushAll(); updStatus(Object.assign({},S.upd,{state:'downloading',percent:0})); DESK.update.install().then(u=>{ if(u&&u.state==='error') updStatus(u); }).catch(()=>{}); } },
   importOpen:()=>openImport(),
   impGo:()=>runImport(),
   addScene:()=>{ const c=S.chapters.find(x=>x.id===S.sel.chapters); if(!c) return; c.scenes=c.scenes||[];
