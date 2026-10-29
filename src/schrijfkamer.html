@@ -167,6 +167,8 @@ body.focus .app{grid-template-columns:minmax(0,1fr)}
 .rwhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;position:sticky;top:0;background:var(--surface);padding:2px 0 10px;z-index:1}
 .rwhead .lbl{margin:0}
 .rwhead #rw-ver{flex:1 1 100%}
+.rwedit{display:flex;align-items:center;gap:10px;margin:0 0 10px}.rwedit select{flex:1;min-width:0}
+body.focus .rwedit{display:none}
 .rwhead #rwcount{flex:1 1 100%;order:9}
 .rwref .meter{display:block;margin:0 0 12px}
 .rwchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
@@ -1170,7 +1172,8 @@ function vManuscript(){
         <button class="btn" data-act="focus">${document.body.classList.contains('focus')?'Focus uit (Esc)':'Focusmodus'}</button>
       </div>
       <div class="sheet ${rw?'rw':''}">${rw?`<div class="rwgrid">${rwRefHtml(sel)}`:''}<div class="inner">
-        <p class="eyebrow ms-head">Hoofdstuk ${i+1}${rw?' · je nieuwe tekst':''}</p>
+        <p class="eyebrow ms-head">Hoofdstuk ${i+1}${rw?' · je tekst':''}</p>
+        ${rw?rwEditHtml(sel):''}
         <input class="ch-title" type="text" id="ch-title" aria-label="Titel van het hoofdstuk" placeholder="Titel van het hoofdstuk" value="${esc(sel.title)}" data-bind="chapters:${esc(sel.id)}:title">
         <textarea class="syn grow" id="ch-syn" rows="2" aria-label="Samenvatting" placeholder="Samenvatting of scèneplan: wat gebeurt er, wie wil wat, wat verandert er?" data-bind="chapters:${esc(sel.id)}:synopsis">${esc(sel.synopsis)}</textarea>
         ${chBeatsHtml(sel)}
@@ -1238,10 +1241,11 @@ function rwRefHtml(c){
   const vs=[...c.versions].reverse();
   return `<aside class="rwref" aria-label="Eerdere versie als referentie">
     <div class="rwhead">
-      <select id="rw-ver" aria-label="Toon versie" style="max-width:100%">${vs.map(x=>`<option value="${esc(x.id)}" ${x.id===v.id?'selected':''}>${esc(x.label)} · ${vDate(x.at)} · ${nf(countWords(x.text))} w</option>`).join('')}</select>
+      <label for="rw-ver" class="lbl" style="margin:0">Vergelijk met</label>
+      <select id="rw-ver" aria-label="Vergelijk met" style="max-width:100%">${vs.map(x=>`<option value="${esc(x.id)}" ${x.id===v.id?'selected':''}>${esc(x.label)} · ${vDate(x.at)} · ${nf(countWords(x.text))} w</option>`).join('')}</select>
       <span class="faint" style="font-size:12.5px" id="rwcount">${rwCountText(v,pr)}</span><span class="spacer"></span>
       <button class="btn ghost sm" data-act="rwSnap" title="Bewaar je huidige tekst als versie, zodat je er later op kunt terugvallen">Bewaar versie</button>
-      <button class="btn ghost sm" data-act="rwRestore" data-confirm="Huidige tekst wordt eerst als versie bewaard. Klik opnieuw" title="Zet deze versie terug als hoofdstuktekst">Zet deze terug</button>
+      <button class="btn ghost sm" data-act="rwRestore" title="Zet deze versie rechts, als de tekst waaraan je werkt. Je huidige tekst wordt eerst bewaard.">Zet rechts</button>
       <button class="btn ghost sm" data-act="rwDelVer" data-confirm="Versie verwijderen? Klik opnieuw" title="Verwijder deze versie">×</button></div>
     <span class="meter ${pr.pct===100?'ok':''}" id="rwmeter"><i style="width:${pr.pct}%"></i></span>
     ${who.length?`<div class="rwchips">${who.map(x=>`<span class="chip" title="${esc(cut([x.role,x.appearance,x.personality].filter(Boolean).join(' · '),260))}">${esc(x.name)}</span>`).join('')}</div>`:''}
@@ -1250,6 +1254,25 @@ function rwRefHtml(c){
   </aside>`;
 }
 function rwChapter(){ return S.chapters.find(c=>c.id===S.sel.chapters); }
+// Rechts: kies aan welke tekst je werkt. Je huidige tekst wordt eerst als versie bewaard, dus er gaat niets verloren.
+function rwEditHtml(c){
+  const base=(c.versions||[]).find(x=>x.id===c.rwBase), vs=[...c.versions].reverse();
+  return `<div class="rwedit"><label for="rw-edit" class="lbl" style="margin:0">Werk aan</label>
+    <select id="rw-edit" aria-label="Werk aan">
+      <option value="" selected>Huidige tekst · ${nf(c.words||0)} w${base?` · gebaseerd op ${esc(base.label)}`:''}</option>
+      ${vs.map(x=>`<option value="${esc(x.id)}">${esc(x.label)} · ${vDate(x.at)} · ${nf(countWords(x.text))} w</option>`).join('')}
+    </select></div>`;
+}
+function rwLoad(id){
+  const c=rwChapter(); if(!hasVersions(c)) return;
+  const v=c.versions.find(x=>x.id===id); if(!v) return;
+  const cur=(c.text||'').trim();
+  let kept=null;
+  if(cur&&!c.versions.some(x=>x.text===c.text)){ kept=addVersion(c,c.text,`Tekst van ${vDate(Date.now())}`); if(!kept){ renderMain(); return; } }
+  c.text=v.text; c.words=countWords(c.text); c.rwBase=v.id; c.updated=Date.now();
+  saveEnt('chapters',c,0); render(); $('#ch-text')?.focus();
+  toast(kept?`“${v.label}” staat nu rechts. Je vorige tekst is bewaard als “${kept.label}”.`:`“${v.label}” staat nu rechts.`);
+}
 // Bewaart een tekst als nieuwe versie. Geeft false als het hoofdstuk te groot zou worden om veilig op te slaan.
 function addVersion(c,text,label){
   const v={id:newId(),label,at:Date.now(),text:String(text||'')};
@@ -1290,8 +1313,8 @@ function rwRestore(){
   if((c.text||'').trim()&&c.text!==v.text&&!c.versions.some(x=>x.text===c.text)){
     if(!addVersion(c,c.text,`Vóór terugzetten`)) return;
   }
-  c.text=v.text; c.words=countWords(c.text); c.updated=Date.now();
-  saveEnt('chapters',c,0); render(); toast(`“${v.label}” is weer je hoofdstuktekst. Niets is verloren.`);
+  c.text=v.text; c.words=countWords(c.text); c.rwBase=v.id; c.updated=Date.now();
+  saveEnt('chapters',c,0); render(); toast(`“${v.label}” staat nu rechts. Niets is verloren.`);
 }
 function rwDelVer(){
   const c=rwChapter(); if(!hasVersions(c)) return;
@@ -2913,7 +2936,7 @@ async function runFeedback(){
 
 /* ================= zoeken en vervangen ================= */
 // Velden met id's, keuzelijsten of tellers worden nooit aangeraakt.
-const FR_SKIP=new Set(['id','pov','place','chapterId','img','cover','banners','created','updated','status','structure','type','role','importance','kind','src','order','words','done','pct','log','checklist','start','end','rwRef','rwDone','at']);
+const FR_SKIP=new Set(['id','pov','place','chapterId','img','cover','banners','created','updated','status','structure','type','role','importance','kind','src','order','words','done','pct','log','checklist','start','end','rwRef','rwDone','rwBase','at']);
 const FR_SCOPES=[['manuscript','Manuscript'],['entities','Personages en wereld'],['plot','Plot, boekgegevens en marketing'],['ideas','Ideeën, research en sessies']];
 function frRegex(q,F){
   const src=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -3065,7 +3088,7 @@ const ACTS={
   rwToggle:()=>{ const c=rwChapter(); prefs.rwShow=!(hasVersions(c)&&prefs.rwShow!==false); savePrefs(); renderMain(); },
   rwTick:(d,a)=>rwTick(Number(d.k),a),
   rwSnap:()=>rwSnap(),
-  rwRestore:(d,a)=>{ if(!armed(a)) return; rwRestore(); },
+  rwRestore:()=>rwRestore(),
   rwDelVer:(d,a)=>{ if(!armed(a)) return; rwDelVer(); },
   frGo:(d,a)=>{ if(!S.fr.r&&!armed(a)) return; frGo(); },
   frUndo:()=>frUndo(),
@@ -3214,6 +3237,7 @@ mainEl.addEventListener('input',e=>{
 mainEl.addEventListener('change',e=>{
   const el=e.target;
   if(el.id==='rw-ver'){ const c=rwChapter(); if(c){ c.rwRef=el.value; saveEnt('chapters',c,600); renderMain(); } return; }
+  if(el.id==='rw-edit'){ if(el.value) rwLoad(el.value); return; }
   if(el.id==='plotStruct'){ applyStructure(el.value); return; }
   if(el.dataset.rerender!==undefined){ render(); }
 });
