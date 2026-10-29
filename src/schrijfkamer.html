@@ -991,6 +991,27 @@ function renderMain(){
   tickSprint(); refreshSessionUi(); renderGen();
 }
 function grow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+// Tekstvakken groeien mee en hebben geen eigen schuifbalk, dus het venster moet de cursor volgen.
+let caretMirror=null;
+const MIRROR_PROPS=['boxSizing','paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth',
+  'fontFamily','fontSize','fontWeight','fontStyle','letterSpacing','lineHeight','textTransform','wordSpacing','textIndent','tabSize','hyphens'];
+function caretOffset(el){
+  if(!caretMirror){ caretMirror=document.createElement('div'); caretMirror.setAttribute('aria-hidden','true');
+    Object.assign(caretMirror.style,{position:'absolute',visibility:'hidden',top:'0',left:'-9999px',whiteSpace:'pre-wrap',overflowWrap:'break-word'}); document.body.append(caretMirror); }
+  const cs=getComputedStyle(el);
+  MIRROR_PROPS.forEach(k=>{ caretMirror.style[k]=cs[k]; });
+  caretMirror.style.width=el.offsetWidth+'px'; caretMirror.lang=el.lang||'';
+  caretMirror.textContent=el.value.slice(0,el.selectionEnd);
+  const mark=document.createElement('span'); mark.textContent='​'; caretMirror.append(mark);
+  return {top:mark.offsetTop,line:parseFloat(cs.lineHeight)||28};
+}
+function keepCaretVisible(el){
+  if(document.activeElement!==el) return;
+  const {top,line}=caretOffset(el), y=el.getBoundingClientRect().top+top;
+  const foot=el.closest('.inner')?.querySelector('.edfoot'), limit=(foot?Math.min(foot.getBoundingClientRect().top,innerHeight):innerHeight)-line*.6;
+  if(y+line>limit) scrollBy(0,y+line-limit);
+  else if(y<line) scrollBy(0,y-line);
+}
 
 /* ---------- welkom ---------- */
 /* ---------- taal van het boek: spellingscontrole, afbreken en AI ---------- */
@@ -3234,7 +3255,7 @@ function handleBind(el){
 const mainEl=$('#main');
 mainEl.addEventListener('input',e=>{
   const el=e.target;
-  if(el.matches('textarea.grow')){ const y=scrollY; grow(el); scrollTo(0,y); }
+  if(el.matches('textarea.grow')){ const y=scrollY; grow(el); scrollTo(0,y); keepCaretVisible(el); }
   if(el.dataset.bind) handleBind(el);
 });
 mainEl.addEventListener('change',e=>{
