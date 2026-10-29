@@ -182,6 +182,14 @@ body.focus .rwedit{display:none}
 .rwp em{color:var(--ink);font-style:italic}.rwp.done em{color:inherit}
 .rwwho{display:block;font-family:var(--f-num);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--pencil)}
 .chi.rwing .chn{color:var(--pencil)}
+.portrait img,.dimg img,.bacard img,.cover img,img.ovcover{cursor:zoom-in}
+#lightbox{position:fixed;inset:0;z-index:60;background:rgba(8,7,6,.92);display:grid;grid-template-rows:auto minmax(0,1fr)}
+#lightbox[hidden]{display:none}
+.lbbar{display:flex;align-items:center;gap:8px;padding:10px 16px;color:var(--ink);font-size:14px}
+.lbbar .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbimg{overflow:auto;display:grid;place-items:center;padding:0 16px 16px}
+.lbimg img{max-width:100%;max-height:calc(100vh - 80px);object-fit:contain;cursor:zoom-in;border-radius:6px}
+.lbimg.full{place-items:start center}.lbimg.full img{max-width:none;max-height:none;cursor:zoom-out}
 .chbeats{margin:6px 0 10px;font-size:13.5px;line-height:1.5}.chbeats p{margin:0 0 6px}
 body.focus .chbeats{display:none}
 body.focus .rwhead .btn,body.focus .rwchips{display:none}
@@ -534,6 +542,7 @@ body.focus .bannerwrap{display:none}
   <main id="main"><div class="loading">Je schrijfkamer wordt geopend…</div></main>
 </div>
 <div id="modal" hidden></div>
+<div id="lightbox" hidden></div>
 <input type="file" id="imgPick" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
 <input type="file" id="bkFile" accept=".json,application/json" hidden>
 <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
@@ -3073,6 +3082,31 @@ function frUndo(){
 $('#modal').addEventListener('input',e=>{ if(/^fr-/.test(e.target.id)){ frRead(); frScan(); renderFr(); } });
 $('#modal').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.target.id==='fr-q'||e.target.id==='fr-r')){ e.preventDefault(); if(S.fr.total&&S.fr.r) frGo(); } });
 
+/* ================= afbeeldingen groot bekijken ================= */
+const ZOOM_IMG='.portrait img,.dimg img,.bacard img,.cover img,img.ovcover';
+function openLightbox(img){
+  const id=(img.getAttribute('src')||'').split('/_blob/')[1]||'';
+  const cap=img.alt||img.closest('.formhead')?.querySelector('h2')?.textContent||img.closest('.gcard,.dcard,.panel')?.querySelector('input[type="text"],.t')?.value||'';
+  const lb=$('#lightbox');
+  lb.innerHTML=`<div class="lbbar"><span class="t">${esc(cap)}</span><span class="spacer"></span>
+    ${DESK&&DESK.images&&id?`<button class="btn sm" data-lb="win" data-id="${esc(id)}" title="Open de afbeelding in een eigen venster, bijvoorbeeld naast je tekst of op een tweede scherm">Open in apart venster</button>`:''}
+    <button class="btn sm" data-lb="fit">Ware grootte</button><button class="btn sm" data-lb="close">Sluit (Esc)</button></div>
+    <div class="lbimg" data-lb="back"><img src="${esc(img.getAttribute('src'))}" alt="${esc(cap)}" data-lb="fit"></div>`;
+  lb.dataset.cap=cap; lb.hidden=false;
+}
+function closeLightbox(){ const lb=$('#lightbox'); lb.hidden=true; lb.innerHTML=''; }
+document.addEventListener('click',e=>{
+  const img=e.target.closest&&e.target.closest(ZOOM_IMG);
+  if(img&&$('#main').contains(img)){ e.preventDefault(); e.stopPropagation(); openLightbox(img); }
+},true);
+$('#lightbox').addEventListener('click',e=>{
+  const a=e.target.closest('[data-lb]'); if(!a) return;
+  const k=a.dataset.lb, box=$('#lightbox .lbimg');
+  if(k==='close'||(k==='back'&&e.target===a)) closeLightbox();
+  else if(k==='fit'){ const on=box.classList.toggle('full'); $('#lightbox [data-lb="fit"].btn').textContent=on?'Passend':'Ware grootte'; }
+  else if(k==='win'){ DESK.images.openWindow(a.dataset.id,$('#lightbox').dataset.cap||'Afbeelding').catch(()=>{}); closeLightbox(); }
+});
+
 /* ================= modal & toast ================= */
 function openModal(html,cls=''){
   const m=$('#modal');
@@ -3288,6 +3322,7 @@ $('#side').addEventListener('change',e=>{ if(e.target.id==='bookSel'){ flushAll(
 document.addEventListener('keydown',e=>{
   if(e.ctrlKey&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='h'&&book()){ e.preventDefault(); openFr(); return; }
   if(e.key!=='Escape') return;
+  if(!$('#lightbox').hidden){ closeLightbox(); return; }
   if(!$('#modal').hidden){ closeModal(); return; }
   if(document.body.classList.contains('focus')){ document.body.classList.remove('focus'); renderMain(); }
 });

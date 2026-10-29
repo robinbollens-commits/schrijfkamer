@@ -173,7 +173,7 @@ function createWindow() {
     e.preventDefault(); closing = true;
     flushWindow().then(() => { if (win && !win.isDestroyed()) win.destroy(); });
   });
-  win.on('closed', () => { win = null; });
+  win.on('closed', () => { win = null; BrowserWindow.getAllWindows().forEach(w => w.close()); }); // afbeeldingsvensters sluiten mee
 }
 
 function buildMenu() {
@@ -240,6 +240,17 @@ function ipc() {
   });
   ipcMain.handle('files:openDataDir', () => shell.openPath(dataDir()));
   ipcMain.handle('app:version', () => app.getVersion());
+  // Een afbeelding in een eigen venster, om naast de tekst of op een tweede scherm te zetten.
+  ipcMain.handle('image:window', (_e, id, title) => {
+    if (!/^[0-9a-f]{32}$/.test(String(id)) || !assetPath(id)) return false;
+    const w = new BrowserWindow({ width: 900, height: 1000, title: String(title || 'Afbeelding').slice(0, 120), backgroundColor: '#14110E', autoHideMenuBar: true,
+      icon: path.join(__dirname, 'build', 'icon.png'), webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
+    w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    w.webContents.on('will-navigate', e => e.preventDefault());
+    w.on('page-title-updated', e => e.preventDefault());
+    w.loadURL(`${SCHEME}://${HOST}/_blob/${id}`);
+    return true;
+  });
   // Spellingscontrole volgt de taal van het open boek (op macOS kiest het systeem zelf).
   const SPELL = { nl: ['nl', 'nl-NL', 'nl-BE'], en: ['en-US', 'en-GB', 'en'], fr: ['fr', 'fr-FR'], de: ['de', 'de-DE'], es: ['es', 'es-ES', 'es-419'], it: ['it', 'it-IT'], pt: ['pt-PT', 'pt-BR', 'pt'] };
   ipcMain.handle('spell:set', (e, lang) => {
