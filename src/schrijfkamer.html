@@ -1163,8 +1163,8 @@ function vManuscript(){
           <button class="btn danger" data-act="delCh" data-confirm="Zeker? Klik opnieuw">Verwijder</button>
         </span>
         ${aiOn()?`<button class="btn ai" data-act="aiOpen" data-from="${esc(sel.id)}" title="Wat schrijf ik hierna?">Wat nu?</button><button class="btn ai" data-act="checkOpen" title="Consistentiecheck">Controleer</button>`:''}
-        ${hasVersions(sel)?`<button class="btn" data-act="rwToggle">${rw?'Verberg versie':'Toon versies'}</button>`:''}
-        ${(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
+        ${hasVersions(sel)?`<button class="btn" data-act="rwToggle">${rw?'Verberg vergelijking':'Vergelijk met origineel'}</button>`:''}
+        ${!hasVersions(sel)&&(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
         <button class="btn" data-act="session" id="sessBtn">Start sessie</button>
         <button class="btn" data-act="sprint" id="sprintBtn">${S.sprint?'Stop sprint':'Sprint 25 min'}</button>
         <button class="btn" data-act="focus">${document.body.classList.contains('focus')?'Focus uit (Esc)':'Focusmodus'}</button>
@@ -1204,7 +1204,7 @@ const RW_TIPS=[
 ];
 const vDate=t=>new Date(t).toLocaleString('nl-BE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 const hasVersions=c=>!!(c&&Array.isArray(c.versions)&&c.versions.length);
-function rwRefVersion(c){ const v=c.versions||[]; return v.find(x=>x.id===c.rwRef)||v[v.length-1]; }
+function rwRefVersion(c){ const v=c.versions||[]; return v.find(x=>x.id===c.rwRef)||v[0]; }
 function rwParts(src){
   const t=String(src||'').replace(/\r/g,'').trim(); if(!t) return [];
   let parts=t.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
@@ -1298,7 +1298,7 @@ function rwDelVer(){
   const v=rwRefVersion(c);
   c.versions=c.versions.filter(x=>x!==v);
   if(c.rwDone){ const m=Object.assign({},c.rwDone); delete m[v.id]; c.rwDone=m; }
-  c.rwRef=(c.versions[c.versions.length-1]||{}).id||null;
+  c.rwRef=(c.versions[0]||{}).id||null;
   saveEnt('chapters',c,0); render(); toast(`“${v.label}” verwijderd`);
 }
 
