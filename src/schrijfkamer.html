@@ -980,11 +980,14 @@ function renderMain(){
   if(!S.ready){ m.innerHTML=`<div class="loading">Je schrijfkamer wordt geopend…</div>`; return; }
   if(!book()){ m.innerHTML=vWelcome(); return; }
   const y=scrollY;
+  // panelen met een eigen schuifbalk houden hun positie bij het opnieuw opbouwen
+  const keep=['.rwref','.chlist'].map(q=>[q,m.querySelector(q)?.scrollTop||0]);
   if(!VIEWS[S.view]) S.view='overzicht';
   m.innerHTML=bannerHtml(S.view)+VIEWS[S.view]();
   m.querySelectorAll('textarea.grow').forEach(grow);
   applyLang();
   scrollTo(0,y);
+  keep.forEach(([q,t])=>{ const el=m.querySelector(q); if(el&&t) el.scrollTop=t; });
   tickSprint(); refreshSessionUi(); renderGen();
 }
 function grow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
