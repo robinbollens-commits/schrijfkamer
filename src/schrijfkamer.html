@@ -2562,18 +2562,23 @@ async function openDesktopSettings(){
       <div class="row"><button class="btn" data-act="export" data-v="backup">Volledige back-up exporteren</button><button class="btn" data-act="bkImport">Back-up importeren</button><button class="btn ghost" data-act="dsOpenData">Gegevensmap openen</button></div>
     </section>
     ${DESK.spell&&DESK.spell.status?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Spellingscontrole</p>
+      ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
+      <p class="hint">Bepaalt de spellingscontrole en de taal die de AI gebruikt. Elk boek heeft zijn eigen taal.</p></div>`:''}
       <p class="muted" style="font-size:13.5px;margin:0" id="ds-spell">Bezig met nakijken…</p></section>`:''}
     ${DESK.update?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Updates</p>
       <div class="row" id="ds-upd">${updHtml()}</div></section>`:''}
     <div class="row"><span class="faint" style="font-size:12px">Schrijfkamer ${esc(v)}</span><span class="spacer"></span><button class="btn" data-act="closeModal">Sluit</button></div>`,'wide');
   $('#ds-prov').value=S.dcfg.provider;
   renderDsFields();
-  if(DESK.spell&&DESK.spell.status) DESK.spell.status().then(r=>{
+  refreshSpellStatus();
+}
+function refreshSpellStatus(){
+  if(DESK&&DESK.spell&&DESK.spell.status) DESK.spell.status().then(r=>{
     const el=$('#ds-spell'); if(!el||!r) return;
     const lang=(r.langs||[])[0]||'', failed=lang&&r.state&&r.state[lang]==='failed';
     el.textContent=!r.enabled?'De spellingscontrole staat uit.'
       :failed?`Het woordenboek voor ${langName()} kon niet geladen worden.`
-      :`Actief voor ${langName()}${book()?` (de taal van “${book().title||'dit boek'}”)`:''}. Fout gespelde woorden krijgen een rode golflijn; klik er met de rechtermuisknop op voor suggesties. De taal kies je per boek bij Boek.`;
+      :`Actief voor ${langName()}. Fout gespelde woorden krijgen een rode golflijn; klik er met de rechtermuisknop op voor suggesties.`;
   }).catch(()=>{});
 }
 function readDsFields(){
@@ -2628,6 +2633,13 @@ async function saveDesktopSettings(){
   toast(c.provider==='none'?'AI-hulp staat uit':'AI-instellingen bewaard');
 }
 $('#modal').addEventListener('change',e=>{ if(e.target.id==='ds-prov'){ readDsFields(); renderDsFields(); } });
+$('#modal').addEventListener('change',e=>{
+  if(e.target.id!=='set-lang') return;
+  const b=book(); if(!b) return;
+  b.lang=e.target.value; saveBook(b,0); applyLang(); renderMain();
+  setTimeout(refreshSpellStatus,300);
+  toast(`Taal van “${b.title||'dit boek'}”: ${langName()}`);
+});
 
 /* ================= instellingen ================= */
 const aiOn=()=>!!(sample&&S.settings&&S.settings.ai);
@@ -2637,6 +2649,8 @@ function openSettings(){
     <label class="tick" style="font-size:15px;color:var(--ink);gap:10px"><input type="checkbox" id="set-ai" ${S.settings.ai?'checked':''} ${sample?'':'disabled'}> Claude-functies gebruiken</label>
     <p class="muted" style="font-size:13.5px">Toont “Wat schrijf ik hierna?”, de consistentiecheck, de ideeëngenerator, feedback na een sessie en voorstellen in je marketingplan. Elke vraag telt mee in je eigen gebruik van Claude. Staat dit uit, dan werkt de app volledig zonder AI.</p>
     ${sample?'':'<p class="faint" style="font-size:13px">Niet beschikbaar in deze weergave. Open de pagina in claude.ai om Claude te gebruiken.</p>'}
+    ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
+      <p class="hint">Bepaalt de spellingscontrole en de taal die de AI gebruikt. Elk boek heeft zijn eigen taal.</p></div>`:''}
     <div class="row"><span class="spacer"></span><button class="btn primary" data-act="closeModal">Klaar</button></div>`);
 }
 $('#modal').addEventListener('change',e=>{
