@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('desktop', {
     set: (p, d) => ipcRenderer.invoke('store:set', p, d),
     del: p => ipcRenderer.invoke('store:del', p),
     flush: () => ipcRenderer.invoke('store:flush'),
+    onChanged: fn => { const h = (_e, m) => fn(m); ipcRenderer.on('store:changed', h); return () => ipcRenderer.removeListener('store:changed', h); },
   },
   assets: {
     save: (bytes, type) => ipcRenderer.invoke('assets:save', bytes, type),
@@ -29,6 +30,13 @@ contextBridge.exposeInMainWorld('desktop', {
     onEvent: fn => { aiListeners.add(fn); return () => aiListeners.delete(fn); },
   },
   version: () => ipcRenderer.invoke('app:version'),
+  sync: {
+    status: () => ipcRenderer.invoke('sync:status'),
+    choose: () => ipcRenderer.invoke('sync:choose'),
+    enable: (dir, mode) => ipcRenderer.invoke('sync:enable', dir, mode),
+    disable: () => ipcRenderer.invoke('sync:disable'),
+    onStatus: fn => { const h = (_e, st) => fn(st); ipcRenderer.on('sync:status', h); return () => ipcRenderer.removeListener('sync:status', h); },
+  },
   images: { openWindow: (id, title) => ipcRenderer.invoke('image:window', id, title) },
   spell: { set: lang => ipcRenderer.invoke('spell:set', lang), status: () => ipcRenderer.invoke('spell:status') },
   update: {

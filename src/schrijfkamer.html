@@ -978,8 +978,10 @@ function syncState(){
   const saving=pending.size>0||busy.size>0;
   const led=saveErr?'err':saving?'busy':'';
   const txt=saveErr?'Niet alles is opgeslagen':saving?'Opslaan…':'Alles opgeslagen';
-  const where=DESK?'Op deze computer bewaard':S.mode==='db'?'In je Claude-account, alleen voor jou':'Alleen in deze browser';
-  el.innerHTML=`<div class="row"><span class="led ${led}"></span><span>${txt}</span></div><div class="where">${where}</div>`;
+  const sy=S.syncSt||{};
+  const where=DESK?(sy.enabled?(sy.online?'Gesynchroniseerd via je cloudmap':'Sync-map niet bereikbaar, je werkt lokaal'):'Op deze computer bewaard'):S.mode==='db'?'In je Claude-account, alleen voor jou':'Alleen in deze browser';
+  const also=sy.enabled&&sy.others&&sy.others.length?`<div class="where" style="color:var(--pencil)">Ook open op ${esc(sy.others.join(', '))}</div>`:'';
+  el.innerHTML=`<div class="row"><span class="led ${led}"></span><span>${txt}</span></div><div class="where">${where}</div>${also}`;
   if(S.mode==='local'&&!DESK) el.title='Open deze pagina ingelogd op claude.ai om je werk in je account te bewaren.';
 }
 
@@ -2542,6 +2544,26 @@ function updStatus(u){
 }
 if(DESK&&DESK.update){ DESK.update.onStatus(updStatus); DESK.update.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
 
+/* ================= synchroniseren (desktop) ================= */
+function syncHtml(){
+  const st=S.syncSt||{};
+  if(!st.enabled) return `<p class="muted" style="font-size:13.5px;margin:0">Uit: je boeken staan alleen op deze computer.</p>
+    <p class="hint" style="margin:0">Schrijf je op meer dan één computer? Installeer <b>Google Drive voor computers</b> (of OneDrive of Dropbox) en kies hier een map in je Drive, bijvoorbeeld <i>G:\\Mijn Drive</i>. Kies op je andere computer dezelfde map.</p>
+    <div class="row"><button class="btn" data-act="syncOn">Kies sync-map…</button></div>`;
+  const t=st.lastSync?new Date(st.lastSync).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'}):'';
+  return `<p style="font-size:13.5px;margin:0"><b>Aan</b> · <span class="muted">${esc(st.dir)}</span></p>
+    <p class="muted" style="font-size:13.5px;margin:0">${st.online?`Gesynchroniseerd${t?` (laatst om ${t})`:''}. Wijzigingen van je andere computer verschijnen hier binnen enkele seconden.`
+      :`De map is nu niet bereikbaar. Je werkt op deze computer verder${st.pending?` (${st.pending} ${st.pending===1?'wijziging wacht':'wijzigingen wachten'})`:''}; alles gaat mee zodra de map terug is.`}</p>
+    ${st.others&&st.others.length?`<p style="font-size:13.5px;margin:0;color:var(--pencil)">Schrijfkamer is ook open op ${esc(st.others.join(', '))}. Schrijf niet op twee computers tegelijk in hetzelfde hoofdstuk: de laatst bewaarde versie wint.</p>`:''}
+    <div class="row"><button class="btn ghost" data-act="syncOff" data-confirm="Sync uitzetten? Klik opnieuw">Sync uitzetten</button></div>`;
+}
+function syncUpdate(st){
+  const had=((S.syncSt||{}).others||[]).length; S.syncSt=st; syncState();
+  const el=document.getElementById('ds-sync'); if(el) el.innerHTML=syncHtml();
+  if(st.enabled&&st.others&&st.others.length&&!had) toast(`Schrijfkamer is ook open op ${st.others.join(', ')}.`);
+}
+if(DESK&&DESK.sync){ DESK.sync.status().then(syncUpdate).catch(()=>{}); DESK.sync.onStatus(syncUpdate); }
+
 /* ================= desktop-instellingen ================= */
 const CLAUDE_MODELS=[['claude-opus-5-5','Claude Opus 5.5: beste kwaliteit (±$4 / $20 per miljoen tokens)'],['claude-sonnet-5-5','Claude Sonnet 5.5: sneller en goedkoper (±$2 / $10)'],['claude-haiku-5-5','Claude Haiku 5.5: goedkoopst, minder sterk in lange tekst (±$0,10 / $0,50)']];
 async function openDesktopSettings(){
@@ -2561,6 +2583,8 @@ async function openDesktopSettings(){
       <p class="muted" style="font-size:13.5px">Alles staat op deze computer. Elke dag wordt automatisch een reservekopie gemaakt; de laatste veertien worden bewaard.</p>
       <div class="row"><button class="btn" data-act="export" data-v="backup">Volledige back-up exporteren</button><button class="btn" data-act="bkImport">Back-up importeren</button><button class="btn ghost" data-act="dsOpenData">Gegevensmap openen</button></div>
     </section>
+    ${DESK.sync?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Synchroniseren</p>
+      <div id="ds-sync" style="display:grid;gap:10px">${syncHtml()}</div></section>`:''}
     ${DESK.spell&&DESK.spell.status?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Spellingscontrole</p>
       ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
       <p class="hint">Bepaalt de spellingscontrole en de taal die de AI gebruikt. Elk boek heeft zijn eigen taal.</p></div>`:''}
@@ -3187,6 +3211,9 @@ const ACTS={
   dsTest:()=>testDesktopAi(),
   dsModels:()=>loadDesktopModels(),
   dsOpenData:()=>DESK&&DESK.files.openDataDir(),
+  syncOn:async()=>{ if(!DESK||!DESK.sync) return; const dir=await DESK.sync.choose(); if(!dir) return; flushAll(); toast('Bezig met koppelen…');
+    const r=await DESK.sync.enable(dir).catch(e=>({ok:false,message:String(e&&e.message||e)})); if(r&&!r.ok&&!r.cancelled) toast(r.message||'Koppelen is mislukt.'); },
+  syncOff:(d,a)=>{ if(!armed(a)) return; DESK.sync.disable().then(st=>{ syncUpdate(st); toast('Sync staat uit. Je boeken blijven op deze computer en in de map.'); }); },
   updCheck:()=>{ if(DESK&&DESK.update){ updStatus(Object.assign({},S.upd,{state:'checking'})); DESK.update.check().then(updStatus).catch(()=>{}); } },
   updInstall:()=>{ if(DESK&&DESK.update){ flushAll(); updStatus(Object.assign({},S.upd,{state:'downloading',percent:0})); DESK.update.install().then(u=>{ if(u&&u.state==='error') updStatus(u); }).catch(()=>{}); } },
   importOpen:()=>openImport(),

@@ -22,6 +22,12 @@
     return { id: p.slice(col.length + 1), exists: true, data: () => clone(data) };
   });
   const notify = col => (subs.get(col) || new Set()).forEach(fn => { try { fn({ docs: rows(col) }); } catch (e) { console.error(e); } });
+  // Wijzigingen die via de sync-map van een andere computer binnenkomen.
+  if (D.store.onChanged) D.store.onChanged(m => {
+    if (!docs || !m || typeof m.path !== 'string') return;
+    if (m.data === null || m.data === undefined) delete docs[m.path]; else docs[m.path] = m.data;
+    notify(parent(m.path));
+  });
   const db = {
     collection(col) {
       return {

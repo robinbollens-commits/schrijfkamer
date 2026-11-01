@@ -21,6 +21,16 @@ De app zoekt zelf naar nieuwe versies: bij het opstarten en daarna om de zes uur
 
 Dit werkt alleen als de repository openbaar is. Bij een privé-repository meldt de app dat er geen openbare updates te vinden zijn, en installeer je nieuwe versies zelf.
 
+## Synchroniseren tussen computers
+
+Schrijf je op meer dan één computer, bijvoorbeeld je pc thuis en je laptop:
+
+1. Installeer **Google Drive voor computers** (of OneDrive of Dropbox) op beide computers.
+2. Ga in Schrijfkamer naar **Instellingen → Synchroniseren → Kies sync-map…** en kies een map in je Drive, bijvoorbeeld `G:\Mijn Drive`.
+3. Doe hetzelfde op je andere computer, met dezelfde map. Staan er al boeken in, dan kies je of je die overneemt of je eigen boeken toevoegt.
+
+Elk hoofdstuk, personage en elke notitie is een eigen bestand in `Schrijfkamer\docs`. Wijzigingen van je andere computer verschijnen binnen enkele seconden. Is de map even onbereikbaar, dan werk je gewoon verder en gaat alles mee zodra ze terug is. Schrijf niet op twee computers tegelijk in hetzelfde hoofdstuk: de laatst bewaarde versie wint. De app toont linksonder wanneer Schrijfkamer ook op een andere computer open is.
+
 ## Je gegevens
 
 - Alles staat in `%APPDATA%\Schrijfkamer` (via *Instellingen → Gegevensmap openen*).
@@ -92,5 +102,6 @@ npm run sync -- pad/naar/index.html
 | `main.js` | hoofdproces: venster, opslag, afbeeldingen, reservekopieën, menu |
 | `ai.js` | Claude, Ollama en OpenAI-compatibele servers |
 | `updater.js` | automatische updates via GitHub Releases |
+| `sync.js` | synchroniseren via een cloudmap |
 | `preload.js` | veilige brug tussen venster en hoofdproces |
 | `src/desktop-shim.js` | vertaalt de opslag- en AI-aanroepen van de webapp naar de desktop |

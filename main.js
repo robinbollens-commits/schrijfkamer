@@ -5,6 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const ai = require('./ai');
 const updater = require('./updater');
+const sync = require('./sync');
+const os = require('os');
 
 const SCHEME = 'app';
 const HOST = 'schrijfkamer';
@@ -14,11 +16,11 @@ protocol.registerSchemesAsPrivileged([
   { scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, codeCache: true } },
 ]);
 
-if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
-
 /* ---------- paden ---------- */
 // SCHRIJFKAMER_DATA laat tests een eigen map gebruiken.
 if (process.env.SCHRIJFKAMER_DATA) app.setPath('userData', path.resolve(process.env.SCHRIJFKAMER_DATA));
+
+if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 const dataDir = () => app.getPath('userData');
 const docsFile = () => path.join(dataDir(), 'schrijfkamer-data.json');
 const configFile = () => path.join(dataDir(), 'instellingen.json');
@@ -39,13 +41,13 @@ function readJson(file, fallback) {
 }
 
 /* ---------- documenten ---------- */
-let docs = {};
+let docs = {}, savedPending = {};
 let dirty = false, saveTimer = null;
 function loadDocs() {
   const f = docsFile();
   if (!fs.existsSync(f)) { docs = {}; return; }
   const parsed = readJson(f, null);
-  if (parsed && typeof parsed.docs === 'object') { docs = parsed.docs; return; }
+  if (parsed && typeof parsed.docs === 'object') { docs = parsed.docs; savedPending = parsed.syncPending || {}; return; }
   // Kapot bestand: apart zetten en terugvallen op de jongste reservekopie.
   const broken = f.replace(/\.json$/, `-beschadigd-${Date.now()}.json`);
   try { fs.copyFileSync(f, broken); } catch (e) {}
@@ -59,7 +61,7 @@ function loadDocs() {
 function saveDocsNow() {
   clearTimeout(saveTimer); saveTimer = null;
   if (!dirty) return;
-  writeAtomic(docsFile(), JSON.stringify({ format: 'schrijfkamer-data', version: 1, savedAt: new Date().toISOString(), docs }));
+  writeAtomic(docsFile(), JSON.stringify({ format: 'schrijfkamer-data', version: 1, savedAt: new Date().toISOString(), docs, syncPending: sync.pending() }));
   dirty = false;
 }
 function scheduleSave() { dirty = true; if (!saveTimer) saveTimer = setTimeout(() => { try { saveDocsNow(); } catch (e) { console.error(e); } }, 400); }
@@ -83,7 +85,16 @@ const MIME_EXT = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg'
 const EXT_MIME = Object.fromEntries(Object.entries(MIME_EXT).map(([m, e]) => [e, m]));
 function assetPath(id) {
   if (!/^[0-9a-f]{32}$/.test(id)) return null;
-  try { const n = fs.readdirSync(assetDir()).find(f => f.startsWith(id + '.')); return n ? path.join(assetDir(), n) : null; } catch (e) { return null; }
+  for (const dir of [sync.assetsDir(), assetDir()]) {
+    if (!dir) continue;
+    try { const n = fs.readdirSync(dir).find(f => f.startsWith(id + '.')); if (n) return path.join(dir, n); } catch (e) {}
+  }
+  return null;
+}
+// Afbeeldingen die hier gemaakt zijn maar nog niet in de sync-map staan.
+function copyAssetsToSync() {
+  const dst = sync.assetsDir(); if (!dst) return;
+  try { for (const f of fs.readdirSync(assetDir())) { const t = path.join(dst, f); if (!fs.existsSync(t)) fs.copyFileSync(path.join(assetDir(), f), t); } } catch (e) {}
 }
 
 /* ---------- spellingscontrole ---------- */
@@ -100,6 +111,33 @@ function installDictionaries() {
   } catch (e) { console.error('woordenboeken', e); }
 }
 const spellState = {};
+
+/* ---------- synchroniseren via een cloudmap ---------- */
+function deviceInfo() {
+  const raw = readJson(configFile(), {});
+  if (!raw.deviceId) { raw.deviceId = crypto.randomBytes(8).toString('hex'); writeAtomic(configFile(), JSON.stringify(raw, null, 2)); }
+  return { device: raw.deviceId, deviceName: process.env.SCHRIJFKAMER_DEVICE || os.hostname() };
+}
+function sendWin(ch, msg) { if (win && !win.isDestroyed()) win.webContents.send(ch, msg); }
+let wasOnline = false;
+function startSync(dir) {
+  sync.start(Object.assign(deviceInfo(), {
+    dir, pending: savedPending, getDocs: () => docs,
+    onRemote: (p, data) => { if (data === null) delete docs[p]; else docs[p] = data; scheduleSave(); sendWin('store:changed', { path: p, data }); },
+    onLost: lost => {
+      // Op de andere computer was hetzelfde document nieuwer: de eigen versie gaat naar de reservekopieën.
+      fs.mkdirSync(backupDir(), { recursive: true });
+      writeAtomic(path.join(backupDir(), `conflict-${Date.now()}.json`), JSON.stringify({ format: 'schrijfkamer-data', version: 1, docs: lost }));
+    },
+    onStatus: st => { if (st.online && !wasOnline) copyAssetsToSync(); wasOnline = st.online; sendWin('sync:status', st); },
+  }));
+  savedPending = {};
+}
+function setSyncDir(dir) {
+  const raw = readJson(configFile(), {});
+  if (dir) raw.syncDir = dir; else delete raw.syncDir;
+  writeAtomic(configFile(), JSON.stringify(raw, null, 2));
+}
 
 /* ---------- instellingen en sleutels ---------- */
 const DEFAULT_CFG = { provider: 'none', model: 'claude-opus-5-5', ollamaUrl: 'http://localhost:11434', ollamaModel: '', numCtx: 16384, oaiUrl: 'http://localhost:1234/v1', oaiModel: '' };
@@ -217,8 +255,8 @@ function serve(req) {
 /* ---------- IPC ---------- */
 function ipc() {
   ipcMain.handle('store:load', () => docs);
-  ipcMain.handle('store:set', (_e, p, d) => { if (typeof p !== 'string') throw new Error('pad'); docs[p] = d; scheduleSave(); return true; });
-  ipcMain.handle('store:del', (_e, p) => { delete docs[p]; scheduleSave(); return true; });
+  ipcMain.handle('store:set', (_e, p, d) => { if (typeof p !== 'string') throw new Error('pad'); docs[p] = d; sync.push(p, d); scheduleSave(); return true; });
+  ipcMain.handle('store:del', (_e, p) => { delete docs[p]; sync.remove(p); scheduleSave(); return true; });
   ipcMain.handle('store:flush', () => { saveDocsNow(); return true; });
 
   ipcMain.handle('assets:save', (_e, bytes, type) => {
@@ -227,6 +265,7 @@ function ipc() {
     fs.mkdirSync(assetDir(), { recursive: true });
     const id = crypto.randomBytes(16).toString('hex');
     fs.writeFileSync(path.join(assetDir(), `${id}.${ext}`), buf);
+    if (sync.isOnline()) try { fs.writeFileSync(path.join(sync.assetsDir(), `${id}.${ext}`), buf); } catch (e) {}
     return { id, url: `/_blob/${id}`, type, size: buf.length };
   });
   ipcMain.handle('assets:del', (_e, id) => { const f = assetPath(String(id)); if (f) fs.unlinkSync(f); return true; });
@@ -240,6 +279,36 @@ function ipc() {
   });
   ipcMain.handle('files:openDataDir', () => shell.openPath(dataDir()));
   ipcMain.handle('app:version', () => app.getVersion());
+  ipcMain.handle('sync:status', () => sync.status());
+  ipcMain.handle('sync:choose', async () => {
+    const r = await dialog.showOpenDialog(win, { title: 'Kies je sync-map', buttonLabel: 'Gebruik deze map', properties: ['openDirectory', 'createDirectory'] });
+    return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+  });
+  // mode: 'upload' | 'use' | 'merge'; zonder mode vraagt de app het als de map al boeken bevat.
+  ipcMain.handle('sync:enable', async (_e, dir, mode) => {
+    if (!dir || !fs.existsSync(dir)) return { ok: false, message: 'Die map bestaat niet.' };
+    const count = sync.inspect(dir);
+    if (!mode) {
+      if (!count) mode = 'upload';
+      else {
+        const r = await dialog.showMessageBox(win, { type: 'question', title: 'Schrijfkamer', noLink: true, cancelId: 2, defaultId: 0,
+          message: 'Er staan al boeken in deze map, waarschijnlijk van je andere computer.',
+          detail: 'Wat er nu op deze computer staat, wordt eerst als reservekopie bewaard.',
+          buttons: ['Gebruik de boeken uit de map', 'Voeg mijn boeken van deze computer toe', 'Annuleer'] });
+        if (r.response === 2) return { ok: false, cancelled: true };
+        mode = r.response === 0 ? 'use' : 'merge';
+      }
+    }
+    await flushWindow();
+    fs.mkdirSync(backupDir(), { recursive: true });
+    writeAtomic(path.join(backupDir(), `voor-sync-${Date.now()}.json`), JSON.stringify({ format: 'schrijfkamer-data', version: 1, docs }));
+    docs = sync.link(dir, docs, mode, assetDir());
+    dirty = true; saveDocsNow();
+    setSyncDir(dir); startSync(dir);
+    if (win && !win.isDestroyed()) win.webContents.reload();
+    return { ok: true };
+  });
+  ipcMain.handle('sync:disable', () => { sync.stop(); setSyncDir(null); dirty = true; saveDocsNow(); return sync.status(); });
   // Een afbeelding in een eigen venster, om naast de tekst of op een tweede scherm te zetten.
   ipcMain.handle('image:window', (_e, id, title) => {
     if (!/^[0-9a-f]{32}$/.test(String(id)) || !assetPath(id)) return false;
@@ -281,6 +350,8 @@ app.whenReady().then(() => {
   try { dailyBackup(); } catch (e) { console.error('reservekopie', e); }
   loadDocs();
   installDictionaries();
+  const cfgSync = readJson(configFile(), {}).syncDir;
+  if (cfgSync) startSync(cfgSync);
   protocol.handle(SCHEME, serve);
   ipc();
   buildMenu();
@@ -288,4 +359,4 @@ app.whenReady().then(() => {
   updater.init({ getWin: () => win, beforeInstall: async () => { await flushWindow(); closing = true; } });
 });
 app.on('window-all-closed', () => { try { saveDocsNow(); } catch (e) {} app.quit(); });
-app.on('before-quit', () => { try { saveDocsNow(); } catch (e) {} });
+app.on('before-quit', () => { try { saveDocsNow(); } catch (e) {} sync.stop(); });
