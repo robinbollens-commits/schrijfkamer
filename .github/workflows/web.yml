@@ -25,7 +25,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Is er een Firebase-configuratie?
         id: cfg
-        run: if [ -f firebase-config.json ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "Nog geen firebase-config.json: niets te publiceren."; fi
+        run: |
+          if [ -f firebase-config.json ]; then echo "ok=1" >> "$GITHUB_OUTPUT"
+          else echo "Nog geen firebase-config.json, dus niets te publiceren."; fi
       - uses: actions/setup-node@v4
         if: steps.cfg.outputs.ok
         with:
