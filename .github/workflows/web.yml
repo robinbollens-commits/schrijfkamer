@@ -1,0 +1,48 @@
+name: Webversie publiceren (gsm en browser)
+
+# Bouwt de webversie en zet ze op GitHub Pages, zodra er een firebase-config.json in de repository staat.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is er een Firebase-configuratie?
+        id: cfg
+        run: if [ -f firebase-config.json ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; else echo "Nog geen firebase-config.json: niets te publiceren."; fi
+      - uses: actions/setup-node@v4
+        if: steps.cfg.outputs.ok
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.cfg.outputs.ok
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: node scripts/build-renderer.js --web
+        if: steps.cfg.outputs.ok
+      - uses: actions/configure-pages@v5
+        if: steps.cfg.outputs.ok
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.cfg.outputs.ok
+        with:
+          path: web
+      - uses: actions/deploy-pages@v4
+        if: steps.cfg.outputs.ok
+        id: deploy

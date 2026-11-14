@@ -258,6 +258,13 @@ function ipc() {
   ipcMain.handle('store:set', (_e, p, d) => { if (typeof p !== 'string') throw new Error('pad'); docs[p] = d; sync.push(p, d); scheduleSave(); return true; });
   ipcMain.handle('store:del', (_e, p) => { delete docs[p]; sync.remove(p); scheduleSave(); return true; });
   ipcMain.handle('store:flush', () => { saveDocsNow(); return true; });
+  // Reservekopie van alles (of van een selectie) in de map met reservekopieën.
+  ipcMain.handle('store:backup', (_e, label, only) => {
+    fs.mkdirSync(backupDir(), { recursive: true });
+    const name = `${String(label || 'kopie').replace(/[^a-z0-9-]/gi, '')}-${Date.now()}.json`;
+    writeAtomic(path.join(backupDir(), name), JSON.stringify({ format: 'schrijfkamer-data', version: 1, savedAt: new Date().toISOString(), docs: only || docs }));
+    return name;
+  });
 
   ipcMain.handle('assets:save', (_e, bytes, type) => {
     const ext = MIME_EXT[type]; if (!ext) throw Object.assign(new Error('Dit soort afbeelding wordt niet ondersteund.'), { code: 'unsupported_type' });
@@ -269,6 +276,22 @@ function ipc() {
     return { id, url: `/_blob/${id}`, type, size: buf.length };
   });
   ipcMain.handle('assets:del', (_e, id) => { const f = assetPath(String(id)); if (f) fs.unlinkSync(f); return true; });
+  // Voor de account-sync: afbeeldingen met een vaste id bewaren, opsommen en lezen.
+  ipcMain.handle('assets:saveAs', (_e, id, bytes, type) => {
+    const ext = MIME_EXT[type]; if (!/^[0-9a-f]{32}$/.test(String(id)) || !ext) return false;
+    fs.mkdirSync(assetDir(), { recursive: true });
+    if (!assetPath(id)) fs.writeFileSync(path.join(assetDir(), `${id}.${ext}`), Buffer.from(bytes));
+    return true;
+  });
+  ipcMain.handle('assets:list', () => {
+    const ids = new Set();
+    for (const dir of [assetDir(), sync.assetsDir()]) { if (!dir) continue; try { fs.readdirSync(dir).forEach(f => { const m = f.match(/^([0-9a-f]{32})\./); if (m) ids.add(m[1]); }); } catch (e) {} }
+    return [...ids];
+  });
+  ipcMain.handle('assets:read', (_e, id) => {
+    const f = assetPath(String(id)); if (!f) return null;
+    return { bytes: fs.readFileSync(f), type: EXT_MIME[path.extname(f).slice(1)] || 'application/octet-stream' };
+  });
 
   ipcMain.handle('files:save', async (_e, filename, data) => {
     const safe = String(filename || 'schrijfkamer.txt').replace(/[\\/:*?"<>|]+/g, '-');

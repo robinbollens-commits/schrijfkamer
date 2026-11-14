@@ -116,7 +116,79 @@
   };
 
   const caps = { db, user, downloads, assets, sample };
-  window.claude = { use: async name => { if (!(name in caps)) throw err('not_declared'); if (name === 'db') await ready; return caps[name]; } };
+
+  /* ---------- account en synchronisatie (Firebase) ---------- */
+  // Met een account staan de boeken online; deze computer houdt een kopie bij in het lokale bestand,
+  // zodat de reservekopieën blijven werken en je offline verder kunt.
+  const C = window.SKCloud;
+  let cloudReady = null;
+  if (C) cloudReady = (async () => {
+    await ready;
+    const u = await C.signedIn();
+    const OWNER = 'schrijfkamer:cloud-owner';
+    let owner = null; try { owner = localStorage.getItem(OWNER); } catch (e) {}
+    const mirrorOn = !owner || owner === u.uid;
+    if (!owner) {
+      const local = {}; for (const [p, d] of Object.entries(docs)) if (p.startsWith('data/users/desktop/')) local[p] = d;
+      if (Object.keys(local).length) {
+        const say = t => C.showOverlay(`<p style="margin:0;font-size:15px">${t}</p><p style="margin:0;color:var(--muted,#B4A792);font-size:13px">Er gaat niets verloren: alles wat hier stond, is eerst als reservekopie bewaard.</p>`);
+        say('Even een reservekopie maken…');
+        try {
+          await D.store.backup('voor-account');
+          const ids = await D.assets.list();
+          const res = await C.migrate(u.uid, local, ids, id => D.assets.read(id), say);
+          if (Object.keys(res.lost).length) await D.store.backup('verschillen-bij-account', res.lost);
+          await new Promise(r => C.summary(res, r));
+        } catch (e) {
+          C.showOverlay(`<p style="margin:0">Je boeken online zetten lukte niet (${String(e && (e.code || e.message) || e)}).</p>
+            <p style="margin:0;color:var(--muted,#B4A792);font-size:13px">Je gegevens staan nog veilig op deze computer. Controleer je internetverbinding.</p>
+            <form onsubmit="location.reload();return false"><button style="font:inherit;font-weight:600;padding:10px 14px;border-radius:9px;border:0;background:var(--pencil,#C9A45C);color:var(--on-pencil,#1A140D);cursor:pointer">Opnieuw proberen</button></form>`);
+          return new Promise(() => {}); // wacht op opnieuw proberen
+        }
+      }
+      try { localStorage.setItem(OWNER, u.uid); } catch (e) {}
+    }
+    C.hideOverlay();
+    // Niet twee synchronisaties tegelijk: de map-sync gaat uit zodra je een account gebruikt.
+    try { if (D.sync) { const st = await D.sync.status(); if (st.enabled) await D.sync.disable(); } } catch (e) {}
+    const mirror = !mirrorOn ? null : (cp, data) => {
+      const lp = C.toLocal(u.uid, cp); if (lp === cp) return;
+      if (data === null) { delete docs[lp]; D.store.del(lp).catch(() => {}); }
+      else { docs[lp] = clone(data); D.store.set(lp, docs[lp]).catch(() => {}); }
+    };
+    caps.db = C.dbApi(mirror);
+    caps.user = { id: async () => u.uid, name: async () => u.email || '' };
+    caps.assets = {
+      async upload(blob) {
+        const bytes = new Uint8Array(await blob.arrayBuffer()), type = blob.type || 'image/webp';
+        const r = await assets.upload(blob);
+        try { await C.assetPut(r.id, bytes, type); } catch (e) { console.warn('afbeelding blijft lokaal', e); }
+        return r;
+      },
+      async delete(id) { await assets.delete(id).catch(() => {}); await C.assetDel(id); },
+    };
+    return u;
+  })();
+  // Afbeeldingen van een ander toestel: ophalen uit het account en hier bewaren.
+  const tried = new Set();
+  document.addEventListener('error', async e => {
+    const img = e.target;
+    if (!C || !img || img.tagName !== 'IMG') return;
+    const m = String(img.getAttribute('src') || '').match(/_blob\/([0-9a-f]{32})/); if (!m || tried.has(m[1])) return;
+    tried.add(m[1]);
+    try {
+      await cloudReady;
+      const a = await C.assetGet(m[1]); if (!a) return;
+      await D.assets.saveAs(m[1], a.bytes, a.type);
+      document.querySelectorAll(`img[src*="${m[1]}"]`).forEach(i => { i.src = i.getAttribute('src').split('?')[0] + '?t=' + Date.now(); });
+    } catch (x) { console.warn(x); }
+  }, true);
+  window.claude = { use: async name => {
+    if (!(name in caps)) throw err('not_declared');
+    if (cloudReady && (name === 'db' || name === 'user' || name === 'assets')) await cloudReady;
+    else if (name === 'db') await ready;
+    return caps[name];
+  } };
 
   /* ---------- netjes afsluiten ---------- */
   window.__skFlush = async () => {
@@ -128,6 +200,7 @@
       if (!open || Date.now() - t0 > 3500) break;
       await new Promise(r => setTimeout(r, 50));
     }
+    if (C && C.user) await Promise.race([C.db.waitForPendingWrites(), new Promise(r => setTimeout(r, 3000))]).catch(() => {});
     await D.store.flush();
     return true;
   };

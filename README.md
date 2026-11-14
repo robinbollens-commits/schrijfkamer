@@ -21,7 +21,13 @@ De app zoekt zelf naar nieuwe versies: bij het opstarten en daarna om de zes uur
 
 Dit werkt alleen als de repository openbaar is. Bij een privé-repository meldt de app dat er geen openbare updates te vinden zijn, en installeer je nieuwe versies zelf.
 
-## Synchroniseren tussen computers
+## Account en sync op al je toestellen
+
+Met een account (Firebase, gratis) staan je boeken online en zijn ze dezelfde op je pc, je laptop en je gsm, ook offline. Inloggen is dan verplicht; elke schrijver heeft een eigen account en ziet alleen zijn eigen boeken. Instellen: zie [FIREBASE.md](FIREBASE.md).
+
+De gsm-versie is dezelfde app, als webapp op GitHub Pages: open ze in Chrome en kies "App installeren".
+
+## Synchroniseren tussen computers (zonder account)
 
 Schrijf je op meer dan één computer, bijvoorbeeld je pc thuis en je laptop:
 
@@ -103,5 +109,7 @@ npm run sync -- pad/naar/index.html
 | `ai.js` | Claude, Ollama en OpenAI-compatibele servers |
 | `updater.js` | automatische updates via GitHub Releases |
 | `sync.js` | synchroniseren via een cloudmap |
+| `src/cloud.js` | inloggen en synchroniseren via Firebase |
+| `src/web-shim.js`, `src/sw.js` | de webversie voor gsm en browser (offline) |
 | `preload.js` | veilige brug tussen venster en hoofdproces |
 | `src/desktop-shim.js` | vertaalt de opslag- en AI-aanroepen van de webapp naar de desktop |

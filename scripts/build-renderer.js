@@ -1,16 +1,22 @@
 #!/usr/bin/env node
-// Bouwt renderer/ uit src/schrijfkamer.html: lokale lettertypes, CSP, desktopbrug en AI-neutrale teksten.
+// Bouwt renderer/ (desktopapp) of, met --web, web/ (de app voor gsm en browser) uit src/schrijfkamer.html:
+// lokale lettertypes, CSP, de brug naar opslag en account, en AI-neutrale teksten.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const root = path.join(__dirname, '..');
-const out = path.join(root, 'renderer');
+const WEB = process.argv.includes('--web');
+const out = path.join(root, WEB ? 'web' : 'renderer');
 const srcFile = path.join(root, 'src', 'schrijfkamer.html');
 
+// Firebase-configuratie (niet geheim): firebase-config.json in de repository, of een ander bestand via SK_FIREBASE_CONFIG (tests).
+const cfgFile = process.env.SK_FIREBASE_CONFIG || path.join(root, 'firebase-config.json');
+const FB = fs.existsSync(cfgFile) ? JSON.parse(fs.readFileSync(cfgFile, 'utf8')) : null;
+
 // `npm run sync -- <pad>` kopieert eerst een nieuwe versie van de webapp naar src/.
-const syncFrom = process.argv[2];
+const syncFrom = process.argv.slice(2).find(a => !a.startsWith('--'));
 if (syncFrom) { fs.copyFileSync(path.resolve(syncFrom), srcFile); console.log('src/schrijfkamer.html bijgewerkt'); }
 
 // Windows-checkouts geven CRLF; de HTML-parser maakt daar LF van, dus de CSP-hash moet over LF gaan.
@@ -41,10 +47,15 @@ if (left.length) console.warn('Let op, nog "Claude" in de tekst:\n' + left.map((
 
 /* ---------- CSP met hashes voor de inline scripts ---------- */
 const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => `'sha256-${crypto.createHash('sha256').update(m[1]).digest('base64')}'`);
+const connect = ["'self'"];
+if (FB) connect.push('https://*.googleapis.com');
+if (FB && FB.emulator) connect.push(FB.emulator.auth, `http://${FB.emulator.firestoreHost}:${FB.emulator.firestorePort}`);
 const csp = [
   "default-src 'self'", `script-src 'self' ${hashes.join(' ')}`, "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:", "font-src 'self'", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'",
+  "img-src 'self' data: blob:", "font-src 'self'", `connect-src ${connect.join(' ')}`, "object-src 'none'", "base-uri 'none'", "form-action 'none'",
 ].join('; ');
+const FB_FILES = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js'];
+const scripts = [...(FB ? [...FB_FILES, 'config.js', 'cloud.js'] : WEB ? ['config.js'] : []), WEB ? 'web-shim.js' : 'desktop-shim.js'];
 
 const head = `<!doctype html>
 <html lang="nl">
@@ -53,7 +64,7 @@ const head = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="fonts.css">
-<script src="desktop-shim.js"></script>
+${WEB ? '<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#14110E">\n<link rel="icon" href="icon-192.png">\n<link rel="apple-touch-icon" href="icon-192.png">\n' : ''}${scripts.map(f => `<script src="${f}"></script>`).join('\n')}
 `;
 html = head + html + (/<\/html>\s*$/i.test(html) ? '' : '\n</html>\n');
 
@@ -82,5 +93,27 @@ for (const [pkg, files] of FONTS) {
 }
 fs.writeFileSync(path.join(out, 'fonts.css'), css);
 fs.writeFileSync(path.join(out, 'index.html'), html);
-fs.copyFileSync(path.join(root, 'src', 'desktop-shim.js'), path.join(out, 'desktop-shim.js'));
-console.log(`renderer/ gebouwd (${Math.round(html.length / 1024)} kB, ${fs.readdirSync(path.join(out, 'fonts')).length} lettertypebestanden)`);
+fs.copyFileSync(path.join(root, 'src', WEB ? 'web-shim.js' : 'desktop-shim.js'), path.join(out, WEB ? 'web-shim.js' : 'desktop-shim.js'));
+if (FB || WEB) {
+  // Op het web staan afbeeldingen onder een relatief pad, omdat de app in een submap draait (GitHub Pages).
+  fs.writeFileSync(path.join(out, 'config.js'), `window.SK_FIREBASE=${FB ? JSON.stringify(FB) : 'null'};${WEB ? "window.SK_BLOB_PREFIX='_blob/';" : ''}\n`);
+}
+if (FB) {
+  for (const f of FB_FILES) fs.copyFileSync(path.join(root, 'node_modules', 'firebase', f), path.join(out, f));
+  fs.copyFileSync(path.join(root, 'src', 'cloud.js'), path.join(out, 'cloud.js'));
+}
+if (WEB) {
+  const ver = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+  fs.writeFileSync(path.join(out, 'manifest.webmanifest'), JSON.stringify({
+    name: 'Schrijfkamer', short_name: 'Schrijfkamer', lang: 'nl', start_url: './', scope: './', display: 'standalone',
+    background_color: '#14110E', theme_color: '#14110E',
+    icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
+  }, null, 1));
+  for (const n of ['icon-192.png', 'icon-512.png']) fs.copyFileSync(path.join(root, 'build', n), path.join(out, n));
+  const files = fs.readdirSync(out, { recursive: true }).filter(f => fs.statSync(path.join(out, f)).isFile()).map(f => f.split(path.sep).join('/'));
+  fs.writeFileSync(path.join(out, 'sw.js'), fs.readFileSync(path.join(root, 'src', 'sw.js'), 'utf8')
+    .replace('__VERSION__', ver + '-' + crypto.createHash('sha1').update(html).digest('hex').slice(0, 8))
+    .replace('__FILES__', JSON.stringify(['./', ...files])));
+  fs.writeFileSync(path.join(out, '.nojekyll'), '');
+}
+console.log(`${WEB ? 'web' : 'renderer'}/ gebouwd${FB ? ' (met account-sync' + (FB.emulator ? ', testomgeving' : '') + ')' : ''} (${Math.round(html.length / 1024)} kB, ${fs.readdirSync(path.join(out, 'fonts')).length} lettertypebestanden)`);

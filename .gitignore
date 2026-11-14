@@ -1,5 +1,6 @@
-node_modules/
-dist/
-renderer/
 *.log
 .test-data/
+dist/
+node_modules/
+renderer/
+web/

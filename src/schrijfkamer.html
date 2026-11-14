@@ -62,7 +62,7 @@ nav.nav{display:flex;flex-direction:column;gap:2px}
   body.navmini .sidebtns{flex-direction:column}
   body.navmini .sidebtns .ico{display:inline;font-size:16px}
 }
-@media (max-width:900px){.sidetoggle{display:none}}
+@media (max-width:900px){.side .sidetoggle{display:none}}
 .sync .row{display:flex;align-items:center;gap:7px}
 .sync .led{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .sync .led.busy{background:var(--warn)}
@@ -1010,9 +1010,11 @@ function syncState(){
   const led=saveErr?'err':saving?'busy':'';
   const txt=saveErr?'Niet alles is opgeslagen':saving?'Opslaan…':'Alles opgeslagen';
   const sy=S.syncSt||{};
-  const where=DESK?(sy.enabled?(sy.online?'Gesynchroniseerd via je cloudmap':'Sync-map niet bereikbaar, je werkt lokaal'):'Op deze computer bewaard'):S.mode==='db'?'In je Claude-account, alleen voor jou':'Alleen in deze browser';
+  const cu=window.SKCloud&&SKCloud.user;
+  const where=cu?(navigator.onLine===false?'Offline: wijzigingen gaan mee zodra je weer online bent':'In je account, op al je toestellen'):DESK?(sy.enabled?(sy.online?'Gesynchroniseerd via je cloudmap':'Sync-map niet bereikbaar, je werkt lokaal'):'Op deze computer bewaard'):S.mode==='db'?'In je Claude-account, alleen voor jou':'Alleen in deze browser';
   const also=sy.enabled&&sy.others&&sy.others.length?`<div class="where" style="color:var(--pencil)">Ook open op ${esc(sy.others.join(', '))}</div>`:'';
   el.innerHTML=`<div class="row"><span class="led ${led}"></span><span>${txt}</span></div><div class="where">${where}</div>${also}`;
+  if(cu) el.title='Ingelogd als '+(cu.email||'');
   if(S.mode==='local'&&!DESK) el.title='Open deze pagina ingelogd op claude.ai om je werk in je account te bewaren.';
 }
 
@@ -1429,7 +1431,7 @@ function rwLoad(id){
 function addVersion(c,text,label){
   const v={id:newId(),label,at:Date.now(),text:String(text||'')};
   const size=JSON.stringify(c).length+v.text.length;
-  if(size>800000){ toast('Er passen geen versies meer bij dit hoofdstuk. Verwijder eerst een oude versie.'); return null; }
+  if(size>700000){ toast('Er passen geen versies meer bij dit hoofdstuk. Verwijder eerst een oude versie.'); return null; }
   c.versions=[...(c.versions||[]),v]; return v;
 }
 function rwStart(mode){
@@ -2661,6 +2663,15 @@ function updStatus(u){
 }
 if(DESK&&DESK.update){ DESK.update.onStatus(updStatus); DESK.update.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
 
+/* ================= account ================= */
+function accountHtml(){
+  const u=window.SKCloud&&SKCloud.user; if(!u) return '';
+  return `<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Account</p>
+    <p class="muted" style="font-size:13.5px;margin:0">Ingelogd als <b>${esc(u.email||'')}</b>. Je boeken staan in je account en zijn op al je toestellen dezelfde. Zonder internet werk je gewoon verder; alles gaat mee zodra je weer online bent.</p>
+    <div class="row"><button class="btn ghost" data-act="signOut" data-confirm="Afmelden? Klik opnieuw">Afmelden</button></div></section>`;
+}
+addEventListener('online',()=>syncState()); addEventListener('offline',()=>syncState());
+
 /* ================= synchroniseren (desktop) ================= */
 function syncHtml(){
   const st=S.syncSt||{};
@@ -2700,7 +2711,8 @@ async function openDesktopSettings(){
       <p class="muted" style="font-size:13.5px">Alles staat op deze computer. Elke dag wordt automatisch een reservekopie gemaakt; de laatste veertien worden bewaard.</p>
       <div class="row"><button class="btn" data-act="export" data-v="backup">Volledige back-up exporteren</button><button class="btn" data-act="bkImport">Back-up importeren</button><button class="btn ghost" data-act="dsOpenData">Gegevensmap openen</button></div>
     </section>
-    ${DESK.sync?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Synchroniseren</p>
+    ${accountHtml()}
+    ${DESK.sync&&!(window.SKCloud&&SKCloud.user)?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Synchroniseren</p>
       <div id="ds-sync" style="display:grid;gap:10px">${syncHtml()}</div></section>`:''}
     ${DESK.spell&&DESK.spell.status?`<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Spellingscontrole</p>
       ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
@@ -2789,7 +2801,8 @@ function openSettings(){
   openModal(`<h2 id="mt">Instellingen</h2>
     <label class="tick" style="font-size:15px;color:var(--ink);gap:10px"><input type="checkbox" id="set-ai" ${S.settings.ai?'checked':''} ${sample?'':'disabled'}> Claude-functies gebruiken</label>
     <p class="muted" style="font-size:13.5px">Toont “Wat schrijf ik hierna?”, de consistentiecheck, de ideeëngenerator, feedback na een sessie en voorstellen in je marketingplan. Elke vraag telt mee in je eigen gebruik van Claude. Staat dit uit, dan werkt de app volledig zonder AI.</p>
-    ${sample?'':'<p class="faint" style="font-size:13px">Niet beschikbaar in deze weergave. Open de pagina in claude.ai om Claude te gebruiken.</p>'}
+    ${sample?'':window.SKCloud?'<p class="faint" style="font-size:13px">AI-hulp werkt in de desktopapp.</p>':'<p class="faint" style="font-size:13px">Niet beschikbaar in deze weergave. Open de pagina in claude.ai om Claude te gebruiken.</p>'}
+    ${accountHtml()}
     ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
       <p class="hint">Bepaalt de spellingscontrole en de taal die de AI gebruikt. Elk boek heeft zijn eigen taal.</p></div>`:''}
     <div class="row"><span class="spacer"></span><button class="btn primary" data-act="closeModal">Klaar</button></div>`);
@@ -2799,7 +2812,7 @@ $('#modal').addEventListener('change',e=>{
 });
 
 /* ================= afbeeldingen ================= */
-const imgUrl=id=>/^[0-9a-f]{32}$/.test(String(id||''))?'/_blob/'+id:'';
+const imgUrl=id=>/^[0-9a-f]{32}$/.test(String(id||''))?(window.SK_BLOB_PREFIX||'/_blob/')+id:'';
 const face=x=>x&&imgUrl(x.img)?`<img src="${imgUrl(x.img)}" alt="" loading="lazy">`:esc(initial(x&&x.name));
 const IMG_ERR={
   decode:'Dit bestand kon niet gelezen worden. Kies een JPG, PNG, WebP of GIF.',
@@ -3240,7 +3253,7 @@ $('#modal').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.target.id==='
 /* ================= afbeeldingen groot bekijken ================= */
 const ZOOM_IMG='.portrait img,.dimg img,.bacard img,.cover img,img.ovcover,.refbody img,.refcard summary img';
 function openLightbox(img){
-  const id=(img.getAttribute('src')||'').split('/_blob/')[1]||'';
+  const id=((img.getAttribute('src')||'').match(/_blob\/([0-9a-f]{32})/)||[])[1]||'';
   const cap=img.alt||img.closest('.formhead')?.querySelector('h2')?.textContent||img.closest('.gcard,.dcard,.panel')?.querySelector('input[type="text"],.t')?.value||'';
   const lb=$('#lightbox');
   lb.innerHTML=`<div class="lbbar"><span class="t">${esc(cap)}</span><span class="spacer"></span>
@@ -3336,6 +3349,7 @@ const ACTS={
   dsTest:()=>testDesktopAi(),
   dsModels:()=>loadDesktopModels(),
   dsOpenData:()=>DESK&&DESK.files.openDataDir(),
+  signOut:(d,a)=>{ if(!armed(a)) return; flushAll(); setTimeout(()=>SKCloud.signOut(),600); },
   syncOn:async()=>{ if(!DESK||!DESK.sync) return; const dir=await DESK.sync.choose(); if(!dir) return; flushAll(); toast('Bezig met koppelen…');
     const r=await DESK.sync.enable(dir).catch(e=>({ok:false,message:String(e&&e.message||e)})); if(r&&!r.ok&&!r.cancelled) toast(r.message||'Koppelen is mislukt.'); },
   syncOff:(d,a)=>{ if(!armed(a)) return; DESK.sync.disable().then(st=>{ syncUpdate(st); toast('Sync staat uit. Je boeken blijven op deze computer en in de map.'); }); },

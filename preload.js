@@ -10,11 +10,15 @@ contextBridge.exposeInMainWorld('desktop', {
     set: (p, d) => ipcRenderer.invoke('store:set', p, d),
     del: p => ipcRenderer.invoke('store:del', p),
     flush: () => ipcRenderer.invoke('store:flush'),
+    backup: (label, only) => ipcRenderer.invoke('store:backup', label, only),
     onChanged: fn => { const h = (_e, m) => fn(m); ipcRenderer.on('store:changed', h); return () => ipcRenderer.removeListener('store:changed', h); },
   },
   assets: {
     save: (bytes, type) => ipcRenderer.invoke('assets:save', bytes, type),
     del: id => ipcRenderer.invoke('assets:del', id),
+    saveAs: (id, bytes, type) => ipcRenderer.invoke('assets:saveAs', id, bytes, type),
+    list: () => ipcRenderer.invoke('assets:list'),
+    read: id => ipcRenderer.invoke('assets:read', id),
   },
   files: {
     save: (filename, data) => ipcRenderer.invoke('files:save', filename, data),
