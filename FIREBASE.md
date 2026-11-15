@@ -27,9 +27,19 @@ service cloud.firestore {
     match /data/users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    // Opslagmeter: elke app schrijft alleen de getallen van zijn eigen account;
+    // het overzicht van alle accounts is alleen leesbaar voor de beheerder.
+    match /data/usage/accounts/{userId} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+        && (request.auth.uid == userId || request.auth.token.email == 'JOUW-EMAILADRES');
+    }
   }
 }
 ```
+
+Vervang `JOUW-EMAILADRES` door het e-mailadres van je eigen Schrijfkamer-account. Alleen dat account ziet dan bij
+**Instellingen → Account** hoeveel van de gratis 1 GB alle accounts samen gebruiken.
 
 ## 4. De app registreren
 1. Bovenaan links het tandwiel → **Projectinstellingen**.

@@ -2668,7 +2668,8 @@ function accountHtml(){
   const u=window.SKCloud&&SKCloud.user; if(!u) return '';
   return `<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Account</p>
     <p class="muted" style="font-size:13.5px;margin:0">Ingelogd als <b>${esc(u.email||'')}</b>. Je boeken staan in je account en zijn op al je toestellen dezelfde. Zonder internet werk je gewoon verder; alles gaat mee zodra je weer online bent.</p>
-    <div class="row"><button class="btn ghost" data-act="signOut" data-confirm="Afmelden? Klik opnieuw">Afmelden</button></div></section>`;
+    <div class="row"><button class="btn ghost" data-act="signOut" data-confirm="Afmelden? Klik opnieuw">Afmelden</button></div></section>
+    ${SKCloud.usageMount?(setTimeout(()=>SKCloud.usageMount(document.getElementById('sk-usage'))),'<div id="sk-usage"></div>'):''}`;
 }
 addEventListener('online',()=>syncState()); addEventListener('offline',()=>syncState());
 

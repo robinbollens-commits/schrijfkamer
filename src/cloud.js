@@ -155,13 +155,100 @@
   async function assetPut(uid, id, bytes, type) {
     if (bytes.byteLength > 740000) throw err('too_large', 'Deze afbeelding is te groot om te synchroniseren.');
     await db.doc(`${base(uid)}library/assets/${id}`).set({ type, size: bytes.byteLength, data: toB64(bytes), created: Date.now() });
+    // Grootte apart bijhouden, zodat de opslagmeter de afbeeldingen niet hoeft te downloaden.
+    db.doc(`${base(uid)}library`).set({ assetSizes: { [id]: bytes.byteLength } }, { merge: true }).catch(() => {});
   }
   async function assetGet(uid, id) {
     const s = await db.doc(`${base(uid)}library/assets/${id}`).get();
     if (!s.exists) return null;
     const d = s.data(); return { type: d.type, bytes: fromB64(d.data) };
   }
-  const assetDel = (uid, id) => db.doc(`${base(uid)}library/assets/${id}`).delete().catch(() => {});
+  const assetDel = (uid, id) => {
+    db.doc(`${base(uid)}library`).update({ ['assetSizes.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+    return db.doc(`${base(uid)}library/assets/${id}`).delete().catch(() => {});
+  };
+
+  /* ---------- opslagmeter ---------- */
+  // Het gratis Spark-abonnement geeft 1 GiB opslag voor de hele database (alle accounts samen, indexen inbegrepen).
+  // Elke app meet zijn eigen account en zet alleen de getallen in data/usage/accounts/<uid>.
+  // Wie dat overzicht mag lezen, staat in de beveiligingsregels (zie FIREBASE.md); de app toont het alleen als dat lukt.
+  const KINDS = ['chapters', 'characters', 'places', 'notes', 'sessions', 'research', 'designs']; // zoals KINDS in schrijfkamer.html
+  const USAGE = 'data/usage/accounts', MEASURED = 'schrijfkamer:usage-measured', LIMIT = 1024 ** 3;
+  const utf8 = s => new TextEncoder().encode(s).length;
+  const isTs = v => v instanceof firebase.firestore.Timestamp;
+  const valSize = v => v == null || typeof v === 'boolean' ? 1 : typeof v === 'string' ? utf8(v) + 1
+    : typeof v === 'number' || isTs(v) ? 8 : Array.isArray(v) ? v.reduce((a, x) => a + valSize(x), 0)
+    : typeof v === 'object' ? Object.entries(v).reduce((a, [k, x]) => a + utf8(k) + 1 + valSize(x), 0) : 8;
+  // Schatting volgens de rekenregels van Firestore: document + per veld twee indexregels (oplopend en aflopend).
+  function docBytes(path, data) {
+    const name = path.split('/').reduce((a, s) => a + utf8(s) + 1, 0) + 16;
+    let size = name + 32;
+    const walk = (obj, pre) => {
+      for (const [k, v] of Object.entries(obj)) {
+        const fp = pre ? pre + '.' + k : k, vs = valSize(v);
+        if (!pre) size += utf8(k) + 1 + vs;
+        size += 2 * (name + utf8(fp) + 1 + Math.min(vs, 1500) + 32);
+        if (v && typeof v === 'object' && !Array.isArray(v) && !isTs(v)) walk(v, fp);
+      }
+    };
+    walk(data || {}, '');
+    return size;
+  }
+  async function measure(uid) {
+    const root = base(uid) + 'library';
+    let bytes = 0, docs = 0, images = 0, imageBytes = 0;
+    const add = (p, d) => { bytes += docBytes(p, d); docs++; };
+    const one = async p => { const s = await db.doc(p).get(); if (!s.exists) return null; add(p, s.data()); return s.data(); };
+    const col = async c => { const s = await db.collection(c).get(); s.docs.forEach(d => add(c + '/' + d.id, d.data())); return s.docs; };
+    await one(base(uid) + 'settings');
+    const lib = await one(root);
+    const books = await col(root + '/books');
+    await Promise.all([col(root + '/author'), col(root + '/ledger'),
+      ...books.map(b => Promise.all(KINDS.map(k => col(`${root}/books/${b.id}/${k}`))))]);
+    for (const [id, n] of Object.entries((lib && lib.assetSizes) || {})) {
+      const b = docBytes(`${root}/assets/${id}`, { type: 'image/webp', size: 0, created: 0, data: '' }) + Math.ceil(n / 3) * 4 + 3000;
+      bytes += b; imageBytes += b; images++; docs++;
+    }
+    const out = { email: (auth.currentUser && auth.currentUser.email) || '', bytes, docs, images, imageBytes, updated: Date.now() };
+    await db.doc(`${USAGE}/${uid}`).set(out);
+    try { localStorage.setItem(MEASURED + ':' + uid, String(out.updated)); } catch (e) {}
+    return out;
+  }
+  // Eén keer per halve dag, een minuut na het openen (dan is de eerste synchronisatie voorbij).
+  auth.onAuthStateChanged(u => {
+    if (!u) return;
+    let last = 0; try { last = +localStorage.getItem(MEASURED + ':' + u.uid) || 0; } catch (e) {}
+    if (Date.now() - last < 12 * 3600e3) return;
+    setTimeout(() => { if (auth.currentUser && auth.currentUser.uid === u.uid) measure(u.uid).catch(e => console.warn('opslagmeter', e)); }, 60000);
+  });
+  const fmtBytes = n => n >= 1024 ** 2 ? (n / 1024 ** 2).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' kB';
+  const fmtWhen = t => new Date(t).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  // Vult el met de meter, alleen als de regels dit account het overzicht laten lezen.
+  async function usageMount(el) {
+    if (!el || !auth.currentUser) return;
+    let rows;
+    try { rows = (await db.collection(USAGE).get()).docs.map(d => Object.assign({ uid: d.id }, d.data())); }
+    catch (e) { el.innerHTML = ''; return; }
+    const me = auth.currentUser.uid;
+    rows.sort((a, b) => (b.uid === me) - (a.uid === me) || (b.bytes || 0) - (a.bytes || 0));
+    const total = rows.reduce((a, r) => a + (r.bytes || 0), 0), pct = total / LIMIT * 100;
+    const pctTxt = pct < 0.1 ? '< 0,1' : pct.toFixed(1).replace('.', ',');
+    el.innerHTML = `<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px">
+      <p class="subh" style="margin:0">Opslag in Firebase</p>
+      <p style="font-size:13.5px;margin:0"><b>${fmtBytes(total)}</b> <span class="muted">van 1 GB gratis opslag (${pctTxt}%). Alleen jij ziet dit.</span></p>
+      <div style="height:8px;border-radius:99px;background:var(--line,#362D26);overflow:hidden" role="progressbar" aria-label="Opslag gebruikt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}">
+        <div style="height:100%;width:${Math.min(100, Math.max(pct, 0.6))}%;background:${pct > 80 ? 'var(--bad,#e07a6a)' : 'var(--pencil,#C9A45C)'}"></div></div>
+      ${rows.length ? `<ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.6">${rows.map(r => `<li>${esc(r.email || 'onbekend account')}${r.uid === me ? ' (jij)' : ''}: <b>${fmtBytes(r.bytes || 0)}</b>${r.images ? `, waarvan ${fmtBytes(r.imageBytes || 0)} in ${r.images} ${r.images === 1 ? 'afbeelding' : 'afbeeldingen'}` : ''} <span class="faint">· gemeten ${fmtWhen(r.updated)}</span></li>`).join('')}</ul>`
+        : '<p class="muted" style="font-size:13.5px;margin:0">Nog niets gemeten.</p>'}
+      <p class="hint" style="margin:0">Een schatting, met de zoekindexen van Firebase erbij. Elke app meet zijn eigen account één keer per halve dag; een account dat nog niet gemeten is, staat er nog niet bij.</p>
+      <div class="row"><button class="btn ghost" type="button" id="sk-usage-now">Mijn account nu meten</button></div></section>`;
+    const btn = el.querySelector('#sk-usage-now');
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Bezig met meten…';
+      try { await measure(me); await usageMount(el); }
+      catch (e) { btn.disabled = false; btn.textContent = 'Meten lukte niet. Opnieuw?'; }
+    };
+  }
 
   /* ---------- eerste keer: lokale boeken naar het account, zonder iets te verliezen ---------- */
   // localDocs: pad → data (lokale paden). Regels: wat online nog niet bestaat gaat online;
@@ -219,7 +306,7 @@
   window.SKCloud = {
     auth, db,
     get user() { return auth.currentUser; },
-    signedIn, showOverlay, hideOverlay, summary, migrate, dbApi,
+    signedIn, showOverlay, hideOverlay, summary, migrate, dbApi, usageMount,
     toCloud, toLocal, base,
     assetPut: (id, bytes, type) => assetPut(auth.currentUser.uid, id, bytes, type),
     assetGet: id => assetGet(auth.currentUser.uid, id),
