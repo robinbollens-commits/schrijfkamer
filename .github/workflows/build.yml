@@ -44,4 +44,60 @@ jobs:
           fi
           gh release create "v$VER" dist/Schrijfkamer-Setup-*.exe dist/Schrijfkamer-Setup-*.exe.blockmap dist/latest.yml --target "$GITHUB_SHA" \
             --title "Schrijfkamer $VER" \
-            --notes "Download **Schrijfkamer-Setup-$VER.exe** hieronder en dubbelklik. Windows toont waarschijnlijk een blauwe waarschuwing: klik op *Meer informatie* en dan *Toch uitvoeren*. Zie de README voor uitleg."
+            --notes "**Windows:** download **Schrijfkamer-Setup-$VER.exe** hieronder en dubbelklik. Windows toont waarschijnlijk een blauwe waarschuwing: klik op *Meer informatie* en dan *Toch uitvoeren*. Zie de README voor uitleg.
+
+          **Android:** download **Schrijfkamer-$VER.apk** hieronder op je gsm en tik erop om te installeren (sta *installeren uit onbekende bronnen* toe als Android erom vraagt). De APK verschijnt een paar minuten na de Windows-installer."
+
+  # Bouwt de Android-app en hangt Schrijfkamer-<versie>.apk aan dezelfde release.
+  # Nodig: de repository-geheimen ANDROID_KEYSTORE_B64 (de signeersleutel, base64) en
+  # ANDROID_KEYSTORE_PASSWORD. Zonder die geheimen wordt deze stap overgeslagen.
+  android:
+    needs: windows
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zijn de geheimen ingesteld?
+        id: key
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then echo "ok=1" >> "$GITHUB_OUTPUT"
+          else echo "::notice::Geen ANDROID_KEYSTORE_B64/ANDROID_KEYSTORE_PASSWORD; de APK wordt niet gebouwd."; fi
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.ok
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.key.outputs.ok
+      - name: Signeersleutel klaarzetten (alleen tijdens deze build)
+        if: steps.key.outputs.ok
+        working-directory: android
+        run: |
+          mkdir -p keystore
+          echo "$KEYSTORE_B64" | base64 -d > keystore/schrijfkamer.keystore
+          printf 'storeFile=keystore/schrijfkamer.keystore\nstorePassword=%s\nkeyAlias=schrijfkamer\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
+      - name: APK bouwen
+        if: steps.key.outputs.ok
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --console=plain
+      - name: APK controleren en aan de release hangen
+        if: steps.key.outputs.ok
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          APK="Schrijfkamer-$VER.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | grep -i "SHA-256"
+          # Zelfde sleutel als altijd, anders installeert de APK niet als update.
+          "$BT/apksigner" verify --print-certs "$APK" | grep -qi "47bba731b1b21890ee9288533f4720535a0b158c5d03a7c389158f1c5ff2d03c" \
+            || { echo "::error::De APK is met een andere sleutel ondertekend dan de vorige versies."; exit 1; }
+          gh release upload "v$VER" "$APK" --clobber
+      - name: Sleutel opruimen
+        if: always()
+        run: rm -f android/keystore/schrijfkamer.keystore android/keystore.properties
