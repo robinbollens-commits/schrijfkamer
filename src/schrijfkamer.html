@@ -2739,9 +2739,13 @@ async function restoreBackup(bk){
   toast(`${n} ${n===1?'boek':'boeken'} geïmporteerd${lostImgs?`; ${lostImgs} afbeelding(en) konden niet mee`:''}`);
 }
 
-/* ================= updates (desktop) ================= */
+/* ================= updates (desktop en Android-app) ================= */
+// Zelfde knoppen voor beide: window.desktop.update (Electron) of window.SKAppUpdate (Android-app, zie web-shim.js).
+const UPD=(DESK&&DESK.update)||window.SKAppUpdate||null;
 function updText(u){
   switch(u&&u.state){
+    case 'permission': return 'Sta in het scherm van Android toe dat Schrijfkamer apps installeert, en ga dan terug: de update gaat verder.';
+    case 'confirm': return `Bevestig de installatie van versie ${esc(u.version||'')} in het scherm van Android.`;
     case 'disabled': return 'Automatische updates werken alleen in de geïnstalleerde app.';
     case 'checking': return 'Bezig met zoeken naar updates…';
     case 'current': return 'Je hebt de nieuwste versie.';
@@ -2755,7 +2759,16 @@ function updText(u){
 function updHtml(){
   const u=S.upd||{};
   return `<span class="muted" style="font-size:13.5px;flex:1">${updText(u)}</span>${u.state==='available'?`<button class="btn primary sm" data-act="updInstall">Update naar ${esc(u.version||'')}</button>`
-    :['disabled','downloading','checking','ready','installing'].includes(u.state)?'':'<button class="btn sm" data-act="updCheck">Zoek naar updates</button>'}`;
+    :['disabled','downloading','checking','ready','installing','permission'].includes(u.state)?''
+    :u.state==='confirm'?`<button class="btn sm" data-act="updInstall">Opnieuw installeren</button>`:'<button class="btn sm" data-act="updCheck">Zoek naar updates</button>'}`;
+}
+function updSectionHtml(){
+  if(UPD) return `<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Updates</p>
+    <div class="row" id="ds-upd">${updHtml()}</div>${window.SKAppUpdate?`<p class="faint" style="font-size:13px;margin:0">Android-app ${esc(window.SKAppUpdate.version)}. Wat je in de app ziet, werkt zichzelf bij; een nieuwe app-versie installeer je hier.</p>`:''}</section>`;
+  if(window.SKAppOld) return `<section style="display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px"><p class="subh" style="margin:0">Updates</p>
+    <p class="muted" style="font-size:13.5px;margin:0">Deze versie van de Android-app kan zichzelf nog niet bijwerken. Installeer eenmalig de nieuwste app; daarna kan het hier met één tik.</p>
+    <div class="row"><a class="btn" href="https://github.com/robinbollens-commits/schrijfkamer/releases/latest" target="_blank" rel="noopener">Nieuwste app downloaden</a></div></section>`;
+  return '';
 }
 function updSideHtml(){
   const u=S.upd||{};
@@ -2770,7 +2783,7 @@ function updStatus(u){
   if(u.state!==was||u.state==='downloading') renderSide();
   if(u.state==='available'&&was!=='available') toast(`Versie ${u.version} is beschikbaar`,{label:'Update',act:'updInstall'});
 }
-if(DESK&&DESK.update){ DESK.update.onStatus(updStatus); DESK.update.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
+if(UPD){ UPD.onStatus(updStatus); UPD.state().then(u=>{ if(u) S.upd=u; }).catch(()=>{}); }
 
 /* ================= account ================= */
 function accountHtml(){
@@ -2913,6 +2926,7 @@ function openSettings(){
     <p class="muted" style="font-size:13.5px">Toont “Wat schrijf ik hierna?”, de consistentiecheck, de ideeëngenerator, feedback na een sessie en voorstellen in je marketingplan. Elke vraag telt mee in je eigen gebruik van Claude. Staat dit uit, dan werkt de app volledig zonder AI.</p>
     ${sample?'':window.SKCloud?'<p class="faint" style="font-size:13px">AI-hulp werkt in de desktopapp.</p>':'<p class="faint" style="font-size:13px">Niet beschikbaar in deze weergave. Open de pagina in claude.ai om Claude te gebruiken.</p>'}
     ${accountHtml()}
+    ${updSectionHtml()}
     ${book()?`<div class="field" style="max-width:360px"><label for="set-lang">Taal van “${esc(book().title||'dit boek')}”</label><select id="set-lang">${langOptions(bookLang())}</select>
       <p class="hint">Bepaalt de spellingscontrole en de taal die de AI gebruikt. Elk boek heeft zijn eigen taal.</p></div>`:''}
     <div class="row"><span class="spacer"></span><button class="btn primary" data-act="closeModal">Klaar</button></div>`);
@@ -3506,8 +3520,8 @@ const ACTS={
   syncOn:async()=>{ if(!DESK||!DESK.sync) return; const dir=await DESK.sync.choose(); if(!dir) return; flushAll(); toast('Bezig met koppelen…');
     const r=await DESK.sync.enable(dir).catch(e=>({ok:false,message:String(e&&e.message||e)})); if(r&&!r.ok&&!r.cancelled) toast(r.message||'Koppelen is mislukt.'); },
   syncOff:(d,a)=>{ if(!armed(a)) return; DESK.sync.disable().then(st=>{ syncUpdate(st); toast('Sync staat uit. Je boeken blijven op deze computer en in de map.'); }); },
-  updCheck:()=>{ if(DESK&&DESK.update){ updStatus(Object.assign({},S.upd,{state:'checking'})); DESK.update.check().then(updStatus).catch(()=>{}); } },
-  updInstall:()=>{ if(DESK&&DESK.update){ flushAll(); updStatus(Object.assign({},S.upd,{state:'downloading',percent:0})); DESK.update.install().then(u=>{ if(u&&u.state==='error') updStatus(u); }).catch(()=>{}); } },
+  updCheck:()=>{ if(UPD){ updStatus(Object.assign({},S.upd,{state:'checking'})); UPD.check().then(updStatus).catch(()=>{}); } },
+  updInstall:()=>{ if(UPD){ flushAll(); updStatus(Object.assign({},S.upd,{state:'downloading',percent:0})); UPD.install().then(u=>{ if(u&&u.state==='error') updStatus(u); }).catch(()=>{}); } },
   importOpen:()=>openImport(),
   impGo:()=>runImport(),
   addScene:()=>{ const c=S.chapters.find(x=>x.id===S.sel.chapters); if(!c) return; c.scenes=c.scenes||[];

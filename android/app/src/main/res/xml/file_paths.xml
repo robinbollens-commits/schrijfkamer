@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alleen de map met gedownloade updates wordt gedeeld, met het installatiescherm van Android. -->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

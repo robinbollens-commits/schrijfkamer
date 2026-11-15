@@ -44,6 +44,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var bridge: androidx.webkit.JavaScriptReplyProxy? = null
+    // Elke statuswijziging van een update gaat ongevraagd naar de webapp, zoals bij de desktop.
+    private val updater by lazy { Updater(this) { s -> bridge?.postMessage(JSONObject().put("type", "update").put("status", s).toString()) } }
 
     private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val cb = fileCallback
@@ -83,20 +86,32 @@ class MainActivity : ComponentActivity() {
             setSupportZoom(false)
         }
 
-        // Bestanden bewaren (back-up exporteren): alleen berichten van de eigen website worden aangenomen.
+        // De webapp herkent aan dit kenmerk dat ze in deze app draait en welke versie dat is (voor de updateknoppen).
+        web.settings.userAgentString = web.settings.userAgentString + " SchrijfkamerAndroid/" + updater.installedVersion
+
+        // Brug met de webapp: alleen berichten van de eigen website worden aangenomen.
+        //   {type:'save', id, filename, mime, data}  -> bestand in Downloads/Schrijfkamer
+        //   {type:'update-state'|'update-check'|'update-install', id} -> updates (status komt ook ongevraagd)
+        // Berichten zonder type zijn "save" (zo stuurde de webapp ze vóór 1.9.1).
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "SchrijfkamerAndroid", setOf(ORIGIN)) { _, message, _, isMainFrame, reply ->
                 if (!isMainFrame) return@addWebMessageListener
-                val msg = message.data ?: return@addWebMessageListener
-                thread {
-                    val result = runCatching { saveDownload(JSONObject(msg)) }
-                    runOnUiThread {
-                        result.onSuccess { name ->
-                            Toast.makeText(this, "Bewaard in Downloads/Schrijfkamer: $name", Toast.LENGTH_LONG).show()
-                            reply.postMessage("ok")
-                        }.onFailure {
-                            Toast.makeText(this, "Bewaren lukte niet", Toast.LENGTH_LONG).show()
-                            reply.postMessage("error")
+                val o = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
+                bridge = reply
+                val id = o.optInt("id", 0)
+                val answer = { r: JSONObject -> reply.postMessage(r.put("id", id).toString()) }
+                when (o.optString("type", "save")) {
+                    "update-state" -> answer(JSONObject().put("status", updater.state()))
+                    "update-check" -> { updater.check(); answer(JSONObject().put("status", updater.state())) }
+                    "update-install" -> { updater.install(); answer(JSONObject().put("status", updater.state())) }
+                    else -> thread {
+                        val result = runCatching { saveDownload(o) }
+                        runOnUiThread {
+                            result.onSuccess { name -> Toast.makeText(this, "Bewaard in Downloads/Schrijfkamer: $name", Toast.LENGTH_LONG).show() }
+                                .onFailure { Toast.makeText(this, "Bewaren lukte niet", Toast.LENGTH_LONG).show() }
+                            // Een webapp van vóór 1.9.1 verwacht een kale "ok"; een nieuwere stuurt een id mee.
+                            if (id == 0) reply.postMessage(if (result.isSuccess) "ok" else "error")
+                            else answer(JSONObject().put("ok", result.isSuccess))
                         }
                     }
                 }
@@ -129,6 +144,11 @@ class MainActivity : ComponentActivity() {
         }
 
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) web.loadUrl(START)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updater.resume()   // terug uit "Apps installeren toestaan": verder met de update
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
