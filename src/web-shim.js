@@ -63,8 +63,8 @@
     caps.assets = {
       async upload(blob) {
         const id = hex(), bytes = new Uint8Array(await blob.arrayBuffer()), type = blob.type || 'image/webp';
-        await C.assetPut(id, bytes, type); await cachePut(id, bytes, type);
-        return { id, url: '_blob/' + id, type, size: bytes.byteLength };
+        const s = await C.assetPut(id, bytes, type); await cachePut(id, s.bytes, s.type);
+        return { id, url: '_blob/' + id, type: s.type, size: s.bytes.byteLength };
       },
       async delete(id) { await C.assetDel(id); try { (await caches.open('sk-blobs')).delete(id); } catch (e) {} },
     };

@@ -152,11 +152,42 @@
   // Afbeeldingen staan als base64 in Firestore (gratis, zonder betaalde opslag). Een document mag ±1 MB zijn.
   const toB64 = bytes => { let s = ''; const b = new Uint8Array(bytes); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
   const fromB64 = b64 => { const s = atob(b64), b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
+  // Alles wat naar het account gaat (nieuwe afbeeldingen, de eerste keer inloggen, een back-up importeren)
+  // wordt eerst verkleind: de gratis opslag is 1 GB voor alle accounts samen. GIF blijft zoals het is (animatie).
+  const CLOUD_MAX_PX = 1600, CLOUD_OK = 200000, CLOUD_TARGET = 300000;
+  async function fitForCloud(bytes, type) {
+    if (type === 'image/gif' || bytes.byteLength <= CLOUD_OK || typeof createImageBitmap !== 'function') return { bytes, type };
+    let bmp;
+    try {
+      bmp = await createImageBitmap(new Blob([bytes], { type }));
+      let max = CLOUD_MAX_PX, q = 0.84, best = null;
+      for (let i = 0; i < 4; i++) {
+        const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), w = Math.round(bmp.width * k), h = Math.round(bmp.height * k);
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const g = cv.getContext('2d'); g.drawImage(bmp, 0, 0, w, h);
+        let blob = await new Promise(r => cv.toBlob(r, 'image/webp', q));
+        if (!blob || blob.type !== 'image/webp') { // oudere browsers: JPEG op een witte achtergrond
+          g.globalCompositeOperation = 'destination-over'; g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+          blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+        }
+        if (!blob) break;
+        const out = { bytes: new Uint8Array(await blob.arrayBuffer()), type: blob.type };
+        if (!best || out.bytes.byteLength < best.bytes.byteLength) best = out;
+        if (out.bytes.byteLength <= CLOUD_TARGET) break;
+        max = Math.round(max * 0.75); q = Math.max(0.62, q - 0.07);
+      }
+      return best && best.bytes.byteLength < bytes.byteLength ? best : { bytes, type };
+    } catch (e) { return { bytes, type }; }
+    finally { if (bmp && bmp.close) bmp.close(); }
+  }
+  // Geeft terug wat er echt in het account staat (mogelijk kleiner dan wat binnenkwam).
   async function assetPut(uid, id, bytes, type) {
+    ({ bytes, type } = await fitForCloud(bytes, type));
     if (bytes.byteLength > 740000) throw err('too_large', 'Deze afbeelding is te groot om te synchroniseren.');
     await db.doc(`${base(uid)}library/assets/${id}`).set({ type, size: bytes.byteLength, data: toB64(bytes), created: Date.now() });
     // Grootte apart bijhouden, zodat de opslagmeter de afbeeldingen niet hoeft te downloaden.
     db.doc(`${base(uid)}library`).set({ assetSizes: { [id]: bytes.byteLength } }, { merge: true }).catch(() => {});
+    return { bytes, type };
   }
   async function assetGet(uid, id) {
     const s = await db.doc(`${base(uid)}library/assets/${id}`).get();
