@@ -40,7 +40,7 @@
       overlay.id = 'sk-login';
       overlay.setAttribute('role', 'dialog');
       overlay.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--paper,#14110E);color:var(--ink,#ECE3D2);padding:16px;font-family:var(--f-ui,system-ui)';
-      document.body.appendChild(overlay);
+      (document.body || document.documentElement).appendChild(overlay);
     }
     overlay.innerHTML = `<div style="width:min(420px,100%);background:var(--surface,#1D1915);border:1px solid var(--line,#362D26);border-radius:14px;padding:28px 26px;display:grid;gap:14px">
       <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px"><span style="font-family:var(--f-ms,serif);font-size:30px;color:var(--pencil,#C9A45C)">¶</span>Schrijfkamer</div>${html}</div>`;
@@ -91,13 +91,17 @@
     };
   }
 
+  // Dit script staat in <head>; zonder ingelogde gebruiker antwoordt Firebase soms al voor <body> bestaat.
+  const domReady = () => document.body ? Promise.resolve()
+    : new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+
   // Wacht tot er iemand ingelogd is; toont zo nodig het inlogscherm.
   function signedIn() {
     return new Promise(resolve => {
       let shown = false;
       const off = auth.onAuthStateChanged(u => {
         if (u) { off(); resolve(u); return; }
-        if (!shown) { shown = true; loginForm('login'); }
+        if (!shown) { shown = true; domReady().then(() => { if (!auth.currentUser) loginForm('login'); }); }
       });
     });
   }
