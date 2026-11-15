@@ -39,11 +39,22 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
   - De app regelt bestanden kiezen, back-ups bewaren naar Downloads/Schrijfkamer, de terugknop en externe links.
   - `build.yml` hangt `Schrijfkamer-<versie>.apk` aan elke release, als de repository-geheimen `ANDROID_KEYSTORE_B64` en `ANDROID_KEYSTORE_PASSWORD` bestaan.
   - De SHA-256 van de signeersleutel wordt gecontroleerd. **De keystore staat niet in git. Zonder die sleutel installeert een nieuwe APK niet als update.**
+    - De sleutel staat in `android/keystore/` en `android/keystore.properties` op Robins pc.
+    - Een kopie staat op `\\RBNas\Apps And Projects\Schrijfkamer\Signeersleutel Android`.
+    - De vingerafdruk begint met `47:BB:A7:31`.
+  - `versionCode` is (versie als getal × 100) + `ANDROID_REV` in `android/app/build.gradle.kts`. Verhoog `ANDROID_REV` als de APK verandert zonder een nieuwe webversie.
+  - `web-shim.js` geeft downloads aan de app door via `window.SchrijfkamerAndroid`, een `WebMessageListener` die alleen berichten van de eigen origin aanneemt. De app bewaart ze in `Downloads/Schrijfkamer`.
+  - De webinhoud is alleen in debug-builds inspecteerbaar (chrome://inspect).
+  - **Geschiedenis:** eerst was het een Trusted Web Activity. Op Robins gsm toonde die toch een adresbalk, en Robin wilde een volledige app zoals zijn Jarvis-app. Uit die periode stamt de repo `robinbollens-commits.github.io`, met `.well-known/assetlinks.json` (nu niet meer nodig) en een `index.html` die doorverwijst naar `/schrijfkamer/`.
 
-**Nog niet door mij nagekeken, controleer bij twijfel:**
+**Nagekeken op 15/11/2026 (lokale sessie):**
 
-- of de eerste echte login van Robin en van de zus goed verliep, zonder dataverlies;
-- of de beheerder-e-mail in de echte Firestore-regels is ingevuld.
+- **Robins eerste login** gebeurde op de desktop met 1.8.1. De 4 boeken (326 documenten) staan online, en 16 van de 17 afbeeldingen gingen meteen mee.
+  - De wereldkaart (JPG van 4800 px, 4,9 MB) bleef toen lokaal, omdat ze boven ~740 kB zat. Ze is daarna online gezet als JPEG van 1600 px (611 kB), op Robins keuze. Op de desktop staat het origineel nog.
+- **De zus heeft nog geen account.** Op 15/11 bestond alleen Robins account.
+- **Het beheerder-e-mailadres staat in de gepubliceerde Firestore-regels.** Het repo-bestand `firebase/firestore.rules` bevat de plaatshouder `JOUW-EMAILADRES`.
+  - **Publiceer dat bestand nooit ongewijzigd naar `schrijfkamer-ec48b`.** Dan verliest Robin de opslagmeter. Vul eerst zijn e-mailadres in, en zet dat niet in git.
+- **De Android-app** (WebView, 1.8.4) is geïnstalleerd op Robins gsm en werkt. Robins volgende wens: de interface beter maken voor gebruik op de gsm.
 
 **Waarschuwingen:**
 
@@ -83,6 +94,35 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - Documenten staan onder `data/users/<uid>/library/...`; afbeeldingen als base64 onder `data/users/<uid>/library/assets/<id>`.
 - Maximaal ~740 KB per afbeelding. Sinds 1.8.3 wordt alles eerst verkleind, zodat ook grote foto's meegaan.
 - De regels (`firebase/firestore.rules`) laten elke gebruiker alleen in `data/users/{zijnUid}/**`.
+- **Opslagmeter (1.8.2):**
+  - `cloud.js` meet elk account één keer per halve dag. Het is een schatting volgens de Firestore-rekenregels, de indexen inbegrepen.
+  - Alleen de getallen gaan naar `data/usage/accounts/<uid>`.
+  - De grootte van elke afbeelding staat in de map `assetSizes` op het document `data/users/<uid>/library`. Zo hoeft de meter geen afbeeldingen te downloaden. `assetPut` en `assetDel` houden die map bij.
+  - Lezen van alle accounts mag alleen het beheerder-e-mailadres, en dat staat alleen in de gepubliceerde regels. De app toont de meter alleen als dat lezen lukt; het e-mailadres staat dus niet in de openbare code.
+- **Gratis Spark-limiet:** 1 GiB voor alle accounts samen.
+
+## Back-ups (buiten de repo, op Robins pc)
+
+Robin wil de NAS **niet** als cloudopslag voor de app, alleen als lokale back-up. Er draaien twee geplande Windows-taken. De scripts staan in `C:\AI waifu\nas-backup\`, de logs in `nas-backup\logs\`.
+
+| Taak | Wat |
+|---|---|
+| "Schrijfkamer reservekopieën naar NAS" (20:00) | `schrijfkamer-naar-nas.ps1`: robocopy van `%APPDATA%\Schrijfkamer\reservekopieen` naar `\\RBNas\Apps And Projects\Schrijfkamer\Reservekopieen`; verwijdert niets op de NAS |
+| "Schrijfkamer Firebase-back-up naar NAS" (20:15) | `firebase-backup.js`: alle accounts naar `...\Schrijfkamer\Firebase-backup\<datum>\` |
+
+De Firebase-back-up maakt per dag:
+
+- `database.json`: alle documenten;
+- `accounts.json`: de accounts, **zonder** wachtwoord-hashes (Robins keuze);
+- per account `<e-mail>.schrijfkamer.json`, in het formaat van "Back-up exporteren", dus terug te zetten via Instellingen → Back-up importeren.
+
+Bewaring en veiligheid:
+
+- Bewaard worden de laatste 30 dagen plus de eerste back-up van elke maand.
+- Krimpt het aantal documenten met meer dan 30%, dan volgt een waarschuwing en wordt er niets opgeruimd.
+- Het script logt in met het serviceaccount `schrijfkamer-backup`, dat alleen mag lezen (`roles/datastore.viewer` en `roles/firebaseauth.viewer`). De sleutel staat in `%USERPROFILE%\.schrijfkamer-backup\sleutel.json`.
+
+Projectbestanden horen op de NAS in `\\RBNas\Apps And Projects\Schrijfkamer\` (met een LEESMIJ.txt), niet bij de foto's in `\\RBNas\Robbol Photography`.
 
 **Eerste login (migratie), zo dat er niets verloren gaat:**
 
@@ -136,3 +176,5 @@ npm run dist                            # Windows-installer (op Windows)
 - Geen persoonlijke gegevens of boekinhoud van Robin of de zus in de (openbare) repo.
 - Er staat een `LICENSE`-bestand in de repo (alle rechten voorbehouden). Robin heeft de toevoeging ervan eigenlijk geweigerd, maar ze was al gepusht; Robin vroeg niet om het te verwijderen. Vraag het na als het ter sprake komt.
 - Grote veranderingen eerst kort voorleggen. Robin test zelf op Windows en meldt problemen met een screenshot.
+- Geheimen en sleutels vult Robin zelf in, zoals de GitHub-geheimen en zijn wachtwoord. Git-inloggegevens uitlezen om zelf naar de GitHub-API te uploaden wordt geweigerd. Laat GitHub Actions het doen, of laat Robin uploaden.
+- Robin schrijft zijn boeken zelf. Bied geen AI-proza aan; feedback, ordenen en controles mogen wel.
