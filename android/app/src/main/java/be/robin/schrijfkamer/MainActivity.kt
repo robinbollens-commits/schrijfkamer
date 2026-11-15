@@ -58,6 +58,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        // Alleen in een debug-build: de webinhoud is dan te inspecteren via chrome://inspect.
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
 
         web = WebView(this).apply { setBackgroundColor(PAPER) }
         val root = FrameLayout(this).apply {
