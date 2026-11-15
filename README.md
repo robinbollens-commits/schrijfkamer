@@ -113,3 +113,17 @@ npm run sync -- pad/naar/index.html
 | `src/web-shim.js`, `src/sw.js` | de webversie voor gsm en browser (offline) |
 | `preload.js` | veilige brug tussen venster en hoofdproces |
 | `src/desktop-shim.js` | vertaalt de opslag- en AI-aanroepen van de webapp naar de desktop |
+
+## Android-app
+
+`android/` bouwt een kleine APK die de webversie schermvullend opent (Trusted Web Activity, pakket `be.robin.schrijfkamer`).
+De app zelf blijft de webversie op GitHub Pages en werkt zichzelf bij; een nieuwe APK is alleen nodig als `android/` verandert.
+
+```
+cd android
+gradlew assembleRelease      (JAVA_HOME = Android Studio\jbr)
+```
+
+De signeersleutel (`android/keystore/` en `android/keystore.properties`) staat niet in git. Bewaar er een kopie van:
+zonder die sleutel installeert een nieuwe APK niet als update, en klopt
+`https://robinbollens-commits.github.io/.well-known/assetlinks.json` niet meer (dan verschijnt er een adresbalk).

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Schrijfkamer</string>
+    <string name="start_url">https://robinbollens-commits.github.io/schrijfkamer/</string>
+    <!-- Moet overeenkomen met https://robinbollens-commits.github.io/.well-known/assetlinks.json -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://robinbollens-commits.github.io\"}}]</string>
+</resources>
