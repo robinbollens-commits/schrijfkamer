@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Elke gebruiker mag alleen zijn eigen Schrijfkamer lezen en schrijven.
+    match /data/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Opslagmeter (zie FIREBASE.md). In het echte project staat hier het e-mailadres van de beheerder.
+    match /data/usage/accounts/{userId} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+        && (request.auth.uid == userId || request.auth.token.email == 'JOUW-EMAILADRES');
+    }
+  }
+}
