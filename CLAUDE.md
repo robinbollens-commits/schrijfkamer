@@ -5,7 +5,7 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - **Taal met de gebruiker:** altijd Nederlands. De UI is ook Nederlands.
 - **Toon:** Robin wil een adviseur, geen ja-knikker. Benoem fouten en risico's eerst, zonder loze lof, en geef zekerheid aan met [Certain], [Likely] of [Guessing].
 - **Repository:** `robinbollens-commits/schrijfkamer` (openbaar, nodig voor de auto-update).
-- **Huidige release:** 1.8.4. Account-sync via Firebase staat aan; er is een Android-app.
+- **Huidige release:** 1.9.0. Account-sync via Firebase staat aan; er is een Android-app.
 
 ## Stand van zaken
 
@@ -54,7 +54,22 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - **De zus heeft nog geen account.** Op 15/11 bestond alleen Robins account.
 - **Het beheerder-e-mailadres staat in de gepubliceerde Firestore-regels.** Het repo-bestand `firebase/firestore.rules` bevat de plaatshouder `JOUW-EMAILADRES`.
   - **Publiceer dat bestand nooit ongewijzigd naar `schrijfkamer-ec48b`.** Dan verliest Robin de opslagmeter. Vul eerst zijn e-mailadres in, en zet dat niet in git.
-- **De Android-app** (WebView, 1.8.4) is geïnstalleerd op Robins gsm en werkt. Robins volgende wens: de interface beter maken voor gebruik op de gsm.
+- **De Android-app** (WebView, 1.8.4) is geïnstalleerd op Robins gsm en werkt.
+
+**1.9.0: interface voor de gsm.** Dit geldt alleen onder 900 px; de desktop blijft gelijk.
+
+- **Kop:** één rij met ¶, het boek, + en ☰. Het ☰-menu (`body.mob-menu-open`) bevat de schrijfsessie, de opslagstatus (ook als stip op ☰, `#mled`), zoeken en instellingen.
+- **Onderbalk:** de vaste `nav.nav` toont `NAV_PRIM` (Overzicht, Manuscript, Plot, Personages) plus "Meer". "Meer" opent het paneel `.navmore` (`body.nav-more-open`); op de desktop is `.navmore` gewoon `display:contents`.
+- **Valkuil:** geef een body-klasse nooit dezelfde naam als een elementklasse. `body.navmore` gecombineerd met de regel `.navmore{display:none}` verborg de hele pagina.
+- **Manuscript:**
+  - Eerst de lijst (`.ms.listing`). Een tik opent het schrijfscherm (`.ms.writing`, `body.mwrite`), met de werkbalk achter ⋯ (`S.msTools`).
+  - `selCh` doet een `history.pushState({sk:'write'})`, zodat de terugknop van Android naar de lijst gaat. `go()` ruimt die stap weer op.
+- **Overige onderdelen:**
+  - Plotmomenten zijn ingeklapt met een `.bsum`-regel (`S.openBeats`).
+  - Banners zijn een strook van 68 px.
+  - Knoppen en velden zijn minstens 40 à 44 px hoog.
+  - `.app{align-content:start}`, anders ontstaat er een lege strook onder de kop bij korte pagina's.
+- **Getest:** in de Firebase-emulator, met headless Edge op 412×915 en met DOM-metingen voor alle 10 onderdelen. Nergens valt iets buiten het scherm, en geen knop is lager dan 36 px.
 
 **Waarschuwingen:**
 

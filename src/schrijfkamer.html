@@ -565,6 +565,97 @@ body.focus .bannerwrap{display:none}
   .ledrow>.num:first-child{display:none}
   .sess .sm-hide{display:none}
 }
+
+/* ---------- gsm: compacte kop, onderbalk, schrijfscherm, grotere knoppen ---------- */
+.navmore{display:contents}
+@media (min-width:901px){ .mobonly{display:none !important} }
+@media (max-width:900px){
+  /* kop: één rij met ¶, boek, + en ☰ (bij weinig inhoud geen lege ruimte onder de kop) */
+  .app{align-content:start}
+  .side{position:sticky;top:0;z-index:40;background:var(--paper);padding-block:calc(8px + env(safe-area-inset-top,0px)) 8px;gap:0;border-bottom:1px solid var(--line)}
+  .sidetop{flex-wrap:nowrap;gap:8px}
+  .sidetop .bname{display:none}
+  .sidetop .pickwrap{flex:1;min-width:0}
+  .menubtn{position:relative;flex:none;font-size:19px;line-height:1}
+  .menubtn .led{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  .menubtn .led.busy{background:var(--warn)}
+  .menubtn .led.err{background:var(--bad)}
+  .sidefoot{display:none}
+  body.mob-menu-open .sidefoot{display:grid;gap:14px;position:absolute;top:100%;left:0;right:0;margin-top:6px;padding:16px;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgb(0 0 0 / .5)}
+  body.mob-menu-open .sidefoot .sessbox{grid-auto-flow:row}
+  .sidebtns{display:flex;flex-wrap:wrap;gap:8px}
+  .sidebtns .btn{flex:1 1 auto;border-color:var(--line)}
+  .sync{font-size:14px}
+
+  /* onderbalk met de vier hoofdonderdelen en "Meer" */
+  nav.nav{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;margin:0;
+    padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);overflow:visible}
+  .nav button{flex-direction:column;justify-content:center;gap:3px;padding:6px 2px;min-height:56px;font-size:11.5px;border-radius:10px;text-align:center;min-width:0}
+  .nav button.on{background:var(--sunk);box-shadow:none;color:var(--pencil)}
+  .nav .nicon{display:block;width:22px;height:22px}
+  .nav .nicon svg{width:22px;height:22px}
+  .nav .nlab{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .navmore{display:none}
+  body.nav-more-open .navmore{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;position:absolute;left:8px;right:8px;bottom:calc(100% + 8px);
+    padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 -10px 30px rgb(0 0 0 / .45)}
+  body.nav-more-open .navmore button{min-height:72px;font-size:12.5px}
+  body.focus nav.nav,body.mwrite nav.nav{display:none}
+  main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  body.mwrite main{padding-bottom:0}
+  .toast{bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+
+  /* banners: een smalle strook */
+  .bannerwrap{margin-bottom:14px}
+  .banner{height:68px}
+  .banner .bt{justify-items:start;place-content:center start;text-align:left;padding-inline:16px}
+  .btitle{font-size:26px}
+  .bscript,.bico{display:none}
+  .bedit{opacity:1;top:50%;bottom:auto;right:8px;transform:translateY(-50%)}
+  .bedit .btn{min-height:36px;padding:4px 10px;font-size:13px}
+
+  /* Manuscript: eerst de lijst, dan een schrijfscherm over de volle breedte */
+  .ms.listing>section{display:none}
+  .ms.writing>.chlist{display:none}
+  .ms.listing .chlist{max-height:none}
+  .chi{padding:12px 10px;min-height:50px}
+  .chi .cht{font-size:16px}
+  .chi .chw{font-size:13px}
+  .mback{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .mback .mbtitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;text-align:center;color:var(--muted)}
+  .ms:not(.tools) .edtools{display:none}
+  .edtools{padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+  body.mwrite .bannerwrap{display:none}
+  body.mwrite .sheet{border:0;background:transparent;padding:4px 0 0;border-radius:0}
+  body.mwrite .edfoot{margin-inline:0;padding-inline:0;background:var(--paper)}
+  textarea.prose{font-size:18px}
+  .filters button,.seg button{min-height:40px;padding-inline:12px;font-size:14px}
+
+  /* knoppen en velden minstens vingertop-groot, kleine tekst groter */
+  .btn{min-height:44px}
+  .btn.sm{min-height:40px;font-size:14px;padding-inline:12px}
+  .btn.icon{min-width:44px}
+  input[type=text],input[type=number],input[type=date],input[type=url],select{min-height:44px;font-size:16px}
+  .edtools select,.edtools input{font-size:15px;min-height:44px}
+  .edtools label{font-size:14px}
+  .hint,.chsum,.field>label,.beat .bh,.beat .bm{font-size:14px}
+  .eyebrow,.lbl{font-size:12.5px}
+  main [style*="font-size:12"],main [style*="font-size:13px"]{font-size:14px !important}
+
+  /* Plot: momenten ingeklapt; tik om te openen */
+  .beat{grid-template-columns:minmax(0,1fr);gap:0;padding:0}
+  .beat>.pct{display:none}
+  .beat>div{padding:2px 14px 14px}
+  .beat:not(.open)>div{display:none}
+  .bsum{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;min-height:54px;
+    padding:10px 14px;border:0;background:transparent;text-align:left;cursor:pointer;color:var(--ink);border-radius:var(--r)}
+  .bsn{font-family:var(--f-num);color:var(--pencil);font-size:14px;min-width:20px}
+  .bst{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bss{font-size:13px;color:var(--muted);white-space:nowrap}
+  .bsc{color:var(--faint);transition:transform .15s}
+  .beat.open .bsc{transform:rotate(180deg)}
+  .beat .bm select{min-height:44px;font-size:15px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 
@@ -979,19 +1070,26 @@ function bannerHtml(view){
         :`<button class="btn sm" data-act="pickImg" data-kind="banner" data-id="${view}">Banner wijzigen</button>${url?`<button class="btn sm" data-act="rmImg" data-kind="banner" data-id="${view}" data-confirm="Zeker?">Standaardbanner</button>`:''}`}</div>`:''}
     </div><span class="bico" aria-hidden="true">${ICONS[view]||''}</span></div>`;
 }
+const NAV_PRIM=['overzicht','manuscript','plot','personages'];
+const ICON_MORE=ic('<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>');
+const isPhone=()=>matchMedia('(max-width:900px)').matches;
 const NAV=[['overzicht','Overzicht'],['manuscript','Manuscript'],['plot','Plot'],['personages','Personages'],['wereld','Wereld'],['ideeen','Ideeën en research'],['voortgang','Voortgang'],['publicatie','Publicatie'],['auteur','Auteur'],['boek','Boek']];
 function renderSide(){
   const el=$('#side'); const b=book();
   if(!S.ready){ el.innerHTML=`<div class="brand"><span class="mark">¶</span>Schrijfkamer</div>`; return; }
   const counts={manuscript:S.chapters.length,personages:S.characters.length,wereld:S.places.length,ideeen:S.notes.filter(n=>!n.done).length};
+  const navBtn=([k,l])=>`<button data-act="nav" data-v="${k}" class="${S.view===k?'on':''}" ${S.view===k?'aria-current="page"':''} title="${l}"><span class="nicon" aria-hidden="true">${ICONS[k]||''}</span><span class="nlab">${l}</span>${counts[k]!=null?`<span class="cnt">${counts[k]}</span>`:''}</button>`;
+  // Op de gsm: de eerste vier onderdelen in een balk onderaan, de rest achter "Meer". Op de desktop staat alles onder elkaar.
+  const inMore=!NAV_PRIM.includes(S.view), moreLbl=inMore?(NAV.find(([k])=>k===S.view)||[])[1]||'Meer':'Meer';
   el.innerHTML=`
     <div class="sidetop">
       <div class="brand"><span class="mark">¶</span><span class="bname">Schrijfkamer</span><button class="btn ghost sm sidetoggle" data-act="navMini" title="${prefs.navMini?'Menu uitklappen':'Menu inklappen'}" aria-label="${prefs.navMini?'Menu uitklappen':'Menu inklappen'}">${prefs.navMini?'»':'«'}</button></div>
       ${S.books.length?`<div class="pickwrap"><label class="lbl" for="bookSel">Boek</label>
       <div class="bookpick"><select id="bookSel" aria-label="Kies een boek">${bookOptions()}</select>
       <button class="btn icon" data-act="newBook" aria-label="Nieuw boek" title="Nieuw boek">+</button></div></div>`:''}
+      <button class="btn icon mobonly menubtn" data-act="mobMenu" aria-label="Menu: schrijfsessie, opslaan, zoeken, instellingen" aria-expanded="${document.body.classList.contains('mob-menu-open')}"><span class="led" id="mled"></span><span aria-hidden="true">☰</span></button>
     </div>
-    ${b?`<nav class="nav" aria-label="Onderdelen">${NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${S.view===k?'on':''}" ${S.view===k?'aria-current="page"':''} title="${l}"><span class="nicon" aria-hidden="true">${ICONS[k]||''}</span><span class="nlab">${l}</span>${counts[k]!=null?`<span class="cnt">${counts[k]}</span>`:''}</button>`).join('')}</nav>`:''}
+    ${b?`<nav class="nav" aria-label="Onderdelen">${NAV.filter(([k])=>NAV_PRIM.includes(k)).map(navBtn).join('')}<div class="navmore" id="navmore">${NAV.filter(([k])=>!NAV_PRIM.includes(k)).map(navBtn).join('')}</div><button class="mobonly morebtn ${inMore?'on':''}" data-act="navMore" aria-expanded="${document.body.classList.contains('nav-more-open')}" title="Meer onderdelen"><span class="nicon" aria-hidden="true">${ICON_MORE}</span><span class="nlab">${esc(moreLbl)}</span></button></nav>`:''}
     <div class="sidefoot">${b?'<div class="sessbox" id="sessbox"></div>':''}<div class="sync" id="sync"></div>${updSideHtml()}<div class="row sidebtns" style="gap:4px">${b?'<button class="btn ghost sm" data-act="frOpen" title="Zoek en vervang (Ctrl+H)"><span class="ico" aria-hidden="true">⌕</span><span class="lab">Zoek en vervang</span></button>':''}<button class="btn ghost sm" data-act="settings" title="Instellingen"><span class="ico" aria-hidden="true">⚙</span><span class="lab">Instellingen</span></button></div></div>`;
   syncState(); refreshSessionUi();
 }
@@ -1014,6 +1112,7 @@ function syncState(){
   const where=cu?(navigator.onLine===false?'Offline: wijzigingen gaan mee zodra je weer online bent':'In je account, op al je toestellen'):DESK?(sy.enabled?(sy.online?'Gesynchroniseerd via je cloudmap':'Sync-map niet bereikbaar, je werkt lokaal'):'Op deze computer bewaard'):S.mode==='db'?'In je Claude-account, alleen voor jou':'Alleen in deze browser';
   const also=sy.enabled&&sy.others&&sy.others.length?`<div class="where" style="color:var(--pencil)">Ook open op ${esc(sy.others.join(', '))}</div>`:'';
   el.innerHTML=`<div class="row"><span class="led ${led}"></span><span>${txt}</span></div><div class="where">${where}</div>${also}`;
+  const dot=$('#mled'); if(dot){ dot.className='led '+led; dot.title=txt; }
   if(cu) el.title='Ingelogd als '+(cu.email||'');
   if(S.mode==='local'&&!DESK) el.title='Open deze pagina ingelogd op claude.ai om je werk in je account te bewaren.';
 }
@@ -1027,6 +1126,7 @@ function renderMain(){
   // panelen met een eigen schuifbalk houden hun positie bij het opnieuw opbouwen
   const keep=['.rwref','.chlist'].map(q=>[q,m.querySelector(q)?.scrollTop||0]);
   if(!VIEWS[S.view]) S.view='overzicht';
+  document.body.classList.toggle('mwrite',S.view==='manuscript'&&!!S.msWrite);
   m.innerHTML=bannerHtml(S.view)+VIEWS[S.view]();
   m.querySelectorAll('textarea.grow').forEach(grow);
   applyLang();
@@ -1211,7 +1311,7 @@ function vManuscript(){
   const goal=sel.goal||0;
   const rw=prefs.rwShow!==false&&(hasVersions(sel)||isExtRef(sel)||prefs.naslag===true);
   const rwAll=chs.filter(hasVersions), rwLine=rwAll.length?` · ${rwAll.length} met versies`:'';
-  return `<div class="ms">
+  return `<div class="ms ${S.msWrite?'writing':'listing'}${S.msTools?' tools':''}">
     <aside class="chlist" aria-label="Hoofdstukken">
       <div class="row"><span class="lbl" style="margin:0">Hoofdstukken</span><span class="spacer"></span><button class="btn ghost sm" data-act="importOpen">Importeer</button><button class="btn sm" data-act="addCh">+ Hoofdstuk</button></div>
       <ol>${chs.map((c,n)=>`<li><button class="chi ${c.id===sel.id?'on':''} ${hasVersions(c)?'rwing':''}" data-act="selCh" data-id="${esc(c.id)}" ${c.id===sel.id?'aria-current="true"':''} ${hasVersions(c)?`title="${c.versions.length} ${c.versions.length===1?'eerdere versie':'eerdere versies'}"`:''}>
@@ -1220,6 +1320,11 @@ function vManuscript(){
       <div class="chsum">${nf(total)} woorden · ≈ ${nf(Math.ceil(total/WORDS_PER_PAGE))} pagina’s${rwLine}</div>
     </aside>
     <section style="min-width:0">
+      <div class="mback mobonly">
+        <button class="btn ghost" data-act="msList">‹ Hoofdstukken</button>
+        <span class="mbtitle">${i+1}. ${esc(sel.title||'Zonder titel')}</span>
+        <button class="btn ghost icon" data-act="msTools" aria-expanded="${!!S.msTools}" aria-label="${S.msTools?'Knoppen verbergen':'Meer knoppen: fase, perspectief, doel, sessie, sprint…'}" title="${S.msTools?'Knoppen verbergen':'Meer knoppen'}">${S.msTools?'✕':'⋯'}</button>
+      </div>
       <div class="edtools">
         <span class="meta row">
           <select aria-label="Fase" data-bind="chapters:${esc(sel.id)}:status" data-rerender>${CH_STATUS.map(s=>`<option ${s===(sel.status||'Idee')?'selected':''}>${s}</option>`).join('')}</select>
@@ -1595,7 +1700,11 @@ function vPlot(){
       let rel='';
       if(c&&target){ const at=c.start/target*100; const diff=at-(x.pct||0);
         rel=Math.abs(diff)<=6?`<span class="chip good">Op schema</span>`:`<span class="chip late">${diff>0?'Later':'Eerder'} dan gepland (${Math.round(at)}%)</span>`; }
-      return actHead(x)+`<article class="panel beat">
+      const open=!!(S.openBeats&&S.openBeats.has(x.id));
+      const state=c?`H${c.n}`:(x.notes||'').trim()?'notitie':'nog leeg';
+      return actHead(x)+`<article class="panel beat ${open?'open':''}">
+        <button class="bsum mobonly" data-act="beatOpen" data-id="${esc(x.id)}" aria-expanded="${open}">
+          <span class="bsn">${n+1}</span><span class="bst">${esc(x.name||'Zonder naam')}</span><span class="bss">${x.pct||0}% · ${state}</span><span class="bsc" aria-hidden="true">▾</span></button>
         <span class="pct">${n+1}<br><span class="faint">${x.pct||0}%</span></span>
         <div style="min-width:0">
           <div class="bn"><input class="name" type="text" aria-label="Naam van het moment" value="${esc(x.name)}" data-bind="beat:${esc(x.id)}:name">
@@ -3303,9 +3412,44 @@ function armed(a){
 }
 
 /* ================= acties ================= */
-function go(v){ S.view=v; prefs.view=v; savePrefs(); render(); scrollTo(0,0); }
+function go(v){
+  closeMobPanels();
+  // Het schrijfscherm op de gsm heeft een eigen stap in de geschiedenis (voor de terugknop); die ruimen we op.
+  if(S.msWrite){ S.msWrite=false; S.msTools=false; if(history.state&&history.state.sk==='write') history.back(); }
+  S.view=v; prefs.view=v; savePrefs(); render(); scrollTo(0,0);
+}
+/* ---------- gsm: menu, "Meer" en het schrijfscherm ---------- */
+function closeMobPanels(){
+  document.body.classList.remove('mob-menu-open','nav-more-open');
+  document.querySelectorAll('[data-act="mobMenu"],[data-act="navMore"]').forEach(b=>b.setAttribute('aria-expanded','false'));
+}
+function toggleMobPanel(cls,btn){
+  const on=!document.body.classList.contains(cls);
+  closeMobPanels(); document.body.classList.toggle(cls,on);
+  if(btn) btn.setAttribute('aria-expanded',String(on));
+}
+document.addEventListener('click',e=>{
+  if(!document.body.matches('.mob-menu-open,.nav-more-open')) return;
+  const a=e.target.closest('[data-act]');
+  if(a&&(a.dataset.act==='mobMenu'||a.dataset.act==='navMore')) return;
+  if(a||!e.target.closest('.sidefoot,.navmore')) closeMobPanels();
+});
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.body.matches('.mob-menu-open,.nav-more-open')) closeMobPanels(); });
+function msOpenList(){ S.msWrite=false; S.msTools=false; renderMain(); scrollTo(0,0); }
+addEventListener('popstate',()=>{ if(S.msWrite) msOpenList(); });
 const ACTS={
   nav:d=>go(d.v),
+  mobMenu:(d,a)=>toggleMobPanel('mob-menu-open',a),
+  navMore:(d,a)=>toggleMobPanel('nav-more-open',a),
+  msList:()=>{ if(history.state&&history.state.sk==='write') history.back(); else msOpenList(); },
+  msTools:()=>{ S.msTools=!S.msTools; renderMain(); },
+  beatOpen:(d,a)=>{
+    const art=a.closest('.beat'); if(!art) return;
+    S.openBeats=S.openBeats||new Set();
+    const on=art.classList.toggle('open'); on?S.openBeats.add(d.id):S.openBeats.delete(d.id);
+    a.setAttribute('aria-expanded',String(on));
+    art.querySelectorAll('textarea.grow').forEach(grow);
+  },
   navMini:()=>{ prefs.navMini=!prefs.navMini; savePrefs(); document.body.classList.toggle('navmini',!!prefs.navMini); renderSide(); },
   newBook:()=>openModal(`<h2 id="mt">Nieuw boek</h2>${bookForm('nb')}<div class="row"><span class="spacer"></span><button class="btn" data-act="closeModal">Annuleer</button><button class="btn primary" data-act="createBook" data-p="nb">Maak boek</button></div>`),
   createBook:d=>createBook(d.p),
@@ -3327,7 +3471,15 @@ const ACTS={
   rwDelVer:(d,a)=>{ if(!armed(a)) return; rwDelVer(); },
   frGo:(d,a)=>{ if(!S.fr.r&&!armed(a)) return; frGo(); },
   frUndo:()=>frUndo(),
-  selCh:d=>{ S.sel.chapters=d.id; renderMain(); if(innerWidth<900) $('.sheet')?.scrollIntoView({block:'start'}); },
+  selCh:d=>{
+    S.sel.chapters=d.id;
+    if(isPhone()){
+      // Op de gsm opent een hoofdstuk in een eigen schrijfscherm; de terugknop brengt je naar de lijst.
+      if(!S.msWrite&&!(history.state&&history.state.sk==='write')) history.pushState({sk:'write'},'');
+      S.msWrite=true; S.msTools=false; renderMain(); scrollTo(0,0); return;
+    }
+    renderMain();
+  },
   openCh:d=>{ S.sel.chapters=d.id; go('manuscript'); },
   addCh:()=>addChapter(),
   moveCh:d=>moveChapter(Number(d.d)),
