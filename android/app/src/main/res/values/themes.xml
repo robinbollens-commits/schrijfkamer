@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Donkere achtergrond vanaf de eerste frame: geen witte flits bij het openen. -->
+    <style name="Theme.Schrijfkamer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:colorBackground">@color/paper</item>
+        <item name="android:colorAccent">@color/pencil</item>
+    </style>
+</resources>

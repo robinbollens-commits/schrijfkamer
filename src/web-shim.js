@@ -5,9 +5,19 @@
   const err = (code, message) => Object.assign(new Error(message || code), { code });
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 
+  // In de Android-app (WebView) kan een gewone download niet; daar bewaart de app het bestand zelf.
+  const android = window.SchrijfkamerAndroid;
+  const toB64 = async blob => { const b = new Uint8Array(await blob.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
   const downloads = {
     async save({ filename, data }) {
       const blob = data instanceof Blob ? data : new Blob([data], { type: 'application/octet-stream' });
+      if (android) {
+        const payload = JSON.stringify({ filename: filename || 'schrijfkamer.txt', mime: blob.type || 'application/octet-stream', data: await toB64(blob) });
+        return new Promise((resolve, reject) => {
+          android.onmessage = e => { android.onmessage = null; e.data === 'ok' ? resolve({ saved: true }) : reject(err('save_failed', 'Bewaren lukte niet.')); };
+          android.postMessage(payload);
+        });
+      }
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename || 'schrijfkamer.txt';
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       return { saved: true };

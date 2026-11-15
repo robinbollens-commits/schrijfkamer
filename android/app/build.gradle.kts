@@ -4,14 +4,16 @@ plugins {
     id("com.android.application")
 }
 
-// Versie volgt package.json van de Schrijfkamer: 1.8.3 wordt versionCode 10803.
+// Versie volgt package.json van de Schrijfkamer. versionCode = (1.8.4 -> 10804) * 100 + ANDROID_REV,
+// zodat een nieuwe APK ook bij dezelfde webversie als update installeert (verhoog dan ANDROID_REV).
+val ANDROID_REV = 1
 val appVersion: String = Regex(""""version"\s*:\s*"([^"]+)"""")
     .find(rootProject.file("../package.json").readText())!!.groupValues[1]
 val (vMajor, vMinor, vPatch) = appVersion.split(".").map { it.toInt() }
 
-// De signeersleutel staat NIET in git: android/keystore/ en android/keystore.properties.
-// Altijd dezelfde sleutel gebruiken, anders installeert een nieuwe APK niet als update
-// en klopt assetlinks.json niet meer (dan verschijnt er een adresbalk).
+// De signeersleutel staat NIET in git: android/keystore/ en android/keystore.properties
+// (kopie op \RBNas\Apps And Projects\Schrijfkamer\Signeersleutel Android).
+// Altijd dezelfde sleutel gebruiken, anders installeert een nieuwe APK niet als update.
 val keyProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -23,9 +25,9 @@ android {
 
     defaultConfig {
         applicationId = "be.robin.schrijfkamer"
-        minSdk = 24
-        targetSdk = 37
-        versionCode = vMajor * 10000 + vMinor * 100 + vPatch
+        minSdk = 29
+        targetSdk = 36
+        versionCode = (vMajor * 10000 + vMinor * 100 + vPatch) * 100 + ANDROID_REV
         versionName = appVersion
     }
 
@@ -52,5 +54,7 @@ android {
 }
 
 dependencies {
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.4")
+    implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.webkit:webkit:1.14.0")
 }
