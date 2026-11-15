@@ -71,6 +71,14 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
   - `.app{align-content:start}`, anders ontstaat er een lege strook onder de kop bij korte pagina's.
 - **Getest:** in de Firebase-emulator, met headless Edge op 412×915 en met DOM-metingen voor alle 10 onderdelen. Nergens valt iets buiten het scherm, en geen knop is lager dan 36 px.
 
+**1.9.1: de Android-app werkt zichzelf bij.**
+
+- `Updater.kt` zoekt bij het opstarten (hoogstens om de 6 uur, via `web-shim.js`) en via Instellingen → Updates naar de nieuwste release op GitHub, met een asset `Schrijfkamer-<versie>.apk`.
+- Het downloadt naar `cacheDir/updates` en controleert de pakketnaam, een hogere `versionCode` en dezelfde signeersleutel. Daarna opent het het installatiescherm via de FileProvider `<pakket>.files`. De eerste keer vraagt Android "apps installeren toestaan"; `onResume` gaat daarna verder.
+- `window.SKAppUpdate` heeft dezelfde vorm als `window.desktop.update`, zodat  in de app dezelfde knoppen toont. Er zijn twee extra statussen: `permission` en `confirm`.
+- De brug `SchrijfkamerAndroid` werkt met `{type, id}`-berichten. Een app van vóór 1.9.1 antwoordt met een kale "ok" en heeft geen `SchrijfkamerAndroid/<versie>` in de user-agent. Dan staat `window.SKAppOld` aan en toont Instellingen een knop om de nieuwe APK te downloaden.
+- **Testen:** met `gradlew assembleRelease -PskDebuggable=true` maak je een release-build met de echte sleutel, maar wel inspecteerbaar via chrome://inspect of `adb forward ... webview_devtools_remote_<pid>`. Getest in de emulator: zoeken, downloaden, de controles en het toestemmingsscherm. De laatste stap (het installatiescherm van Android) is niet in de emulator getest.
+
 **Waarschuwingen:**
 
 - De boeken op claude.ai (de oude artifact-versie) staan los van alles. Wil Robin die online, dan eerst daar een back-up exporteren en die importeren.

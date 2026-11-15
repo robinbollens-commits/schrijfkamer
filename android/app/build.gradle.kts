@@ -43,6 +43,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Alleen voor tests (gradlew assembleRelease -PskDebuggable=true): webinhoud inspecteerbaar.
+            isDebuggable = project.findProperty("skDebuggable") == "true"
             signingConfig = signingConfigs.getByName("schrijfkamer")
         }
     }
