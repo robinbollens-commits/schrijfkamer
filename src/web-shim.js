@@ -41,6 +41,9 @@
   }
   window.SKAppOld = !!(android && !appVersion); // app van vóór 1.9.1: eenmalig zelf de nieuwe APK installeren
   const toB64 = async blob => { const b = new Uint8Array(await blob.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+  // iPadOS doet zich voor als een Mac; het aanraakscherm verraadt hem.
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const MIME = { txt: 'text/plain', md: 'text/markdown', json: 'application/json', csv: 'text/csv', html: 'text/html' };
   const downloads = {
     async save({ filename, data }) {
       const blob = data instanceof Blob ? data : new Blob([data], { type: 'application/octet-stream' });
@@ -48,6 +51,18 @@
         const r = await ask('save', { filename: filename || 'schrijfkamer.txt', mime: blob.type || 'application/octet-stream', data: await toB64(blob) });
         if (!r.ok) throw err('save_failed', 'Bewaren lukte niet.');
         return { saved: true };
+      }
+      // iPhone/iPad: via het deelmenu van iOS (Bewaar in Bestanden, AirDrop, mail...). Een gewone download
+      // werkt daar slecht, zeker als app op het beginscherm. Lukt delen niet (bv. geen tik meer kort ervoor),
+      // dan alsnog de gewone download.
+      if (IOS && navigator.canShare) {
+        const name = filename || 'schrijfkamer.txt', ext = (name.match(/\.(\w+)$/) || [])[1];
+        const type = MIME[(ext || '').toLowerCase()] || blob.type || 'application/octet-stream';
+        const file = new File([blob], name, { type });
+        if (navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file] }); return { saved: true }; }
+          catch (e) { if (e && e.name === 'AbortError') throw err('declined', 'Geannuleerd.'); }
+        }
       }
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename || 'schrijfkamer.txt';
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);

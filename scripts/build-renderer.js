@@ -64,7 +64,7 @@ const head = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="fonts.css">
-${WEB ? '<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#14110E">\n<link rel="icon" href="icon-192.png">\n<link rel="apple-touch-icon" href="icon-192.png">\n' : ''}${scripts.map(f => `<script src="${f}"></script>`).join('\n')}
+${WEB ? '<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#14110E">\n<link rel="icon" href="icon-192.png">\n<link rel="apple-touch-icon" href="apple-touch-icon.png">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Schrijfkamer">\n<meta name="apple-mobile-web-app-status-bar-style" content="black">\n' : ''}${scripts.map(f => `<script src="${f}"></script>`).join('\n')}
 `;
 html = head + html + (/<\/html>\s*$/i.test(html) ? '' : '\n</html>\n');
 
@@ -109,7 +109,7 @@ if (WEB) {
     background_color: '#14110E', theme_color: '#14110E',
     icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
   }, null, 1));
-  for (const n of ['icon-192.png', 'icon-512.png']) fs.copyFileSync(path.join(root, 'build', n), path.join(out, n));
+  for (const n of ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png']) fs.copyFileSync(path.join(root, 'build', n), path.join(out, n));
   const files = fs.readdirSync(out, { recursive: true }).filter(f => fs.statSync(path.join(out, f)).isFile()).map(f => f.split(path.sep).join('/'));
   fs.writeFileSync(path.join(out, 'sw.js'), fs.readFileSync(path.join(root, 'src', 'sw.js'), 'utf8')
     .replace('__VERSION__', ver + '-' + crypto.createHash('sha1').update(html).digest('hex').slice(0, 8))

@@ -5,7 +5,7 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - **Taal met de gebruiker:** altijd Nederlands. De UI is ook Nederlands.
 - **Toon:** Robin wil een adviseur, geen ja-knikker. Benoem fouten en risico's eerst, zonder loze lof, en geef zekerheid aan met [Certain], [Likely] of [Guessing].
 - **Repository:** `robinbollens-commits/schrijfkamer` (openbaar, nodig voor de auto-update).
-- **Huidige release:** 1.9.1. Account-sync via Firebase staat aan; er is een Android-app.
+- **Huidige release:** 1.9.2. Account-sync via Firebase staat aan; er is een Android-app, en op iPhone/iPad werkt de webversie als app op het beginscherm.
 
 ## Stand van zaken
 
@@ -78,6 +78,18 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - `window.SKAppUpdate` heeft dezelfde vorm als `window.desktop.update`, zodat `UPD` in de app dezelfde knoppen toont. Er zijn twee extra statussen: `permission` en `confirm`.
 - De brug `SchrijfkamerAndroid` werkt met `{type, id}`-berichten. Een app van vóór 1.9.1 antwoordt met een kale "ok" en heeft geen `SchrijfkamerAndroid/<versie>` in de user-agent. Dan staat `window.SKAppOld` aan en toont Instellingen een knop om de nieuwe APK te downloaden.
 - **Testen:** met `gradlew assembleRelease -PskDebuggable=true` maak je een release-build met de echte sleutel, maar wel inspecteerbaar via chrome://inspect of `adb forward ... webview_devtools_remote_<pid>`. Getest in de emulator: zoeken, downloaden, de controles en het toestemmingsscherm. De laatste stap (het installatiescherm van Android) is niet in de emulator getest.
+
+**1.9.2: iPad/iPhone.** De webversie werkt als app op het beginscherm (Safari → "Zet op beginscherm"). Robin gebruikt dit op een iPad van het werk.
+
+- Een eigen iOS-app is bewust niet gemaakt. Daarvoor zijn een Apple-ontwikkelaarsaccount en een Mac nodig, en een werk-iPad laat sideloaden meestal niet toe.
+- `build/apple-touch-icon.png` is 180 px, zonder eigen afgeronde rand: iOS rondt zelf af.
+- `build-renderer.js --web` zet het icoon en de `apple-mobile-web-app-*`-metatags (titel, statusbalk `black`) in `web/`.
+- Er staat bewust geen `viewport-fit=cover` in, zodat de Android-WebView niet verandert.
+- `web-shim.js` bewaart op iOS via het deelmenu (`navigator.share({files})`). iPadOS wordt herkend als een Macintosh met aanraakscherm.
+  - Annuleren geeft `declined` en blijft stil.
+  - Faalt delen om een andere reden (bijvoorbeeld omdat de tik te lang geleden is bij een grote back-up), dan volgt de gewone download.
+- Dit is getest met nagebootste toestellen in Node, niet op een echte iPad.
+- Rechtop (ongeveer 820 px) krijgt de iPad de gsm-indeling, liggend de desktopindeling.
 
 **Waarschuwingen:**
 
