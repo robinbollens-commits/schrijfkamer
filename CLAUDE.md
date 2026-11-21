@@ -5,7 +5,7 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - **Taal met de gebruiker:** altijd Nederlands. De UI is ook Nederlands.
 - **Toon:** Robin wil een adviseur, geen ja-knikker. Benoem fouten en risico's eerst, zonder loze lof, en geef zekerheid aan met [Certain], [Likely] of [Guessing].
 - **Repository:** `robinbollens-commits/schrijfkamer` (openbaar, nodig voor de auto-update).
-- **Huidige release:** 1.9.2. Account-sync via Firebase staat aan; er is een Android-app, en op iPhone/iPad werkt de webversie als app op het beginscherm.
+- **Huidige release:** 1.9.3. Account-sync via Firebase staat aan; er is een Android-app, en op iPhone/iPad werkt de webversie als app op het beginscherm.
 
 ## Stand van zaken
 

@@ -176,9 +176,15 @@ textarea.prose:focus{box-shadow:none}
 .sprint{color:var(--pencil);font-family:var(--f-num)}
 body.focus .scenes,body.focus .side,body.focus .chlist,body.focus .edtools .meta,body.focus .syn,body.focus .synhr,body.focus .ms-head{display:none}
 body.focus .app{grid-template-columns:minmax(0,1fr)}
+/* Focusmodus: de knoppen (Naslag, sessie, sprint, Focus uit) blijven bovenaan staan tijdens het scrollen. */
+@media (min-width:901px){
+  body.focus .edtools{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--paper);padding-block:10px;margin-top:-10px}
+  body.focus .rwref{top:calc(env(safe-area-inset-top,0px) + 68px);max-height:calc(100vh - env(safe-area-inset-top,0px) - 152px)}
+}
 .rwgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:clamp(24px,3vw,48px);align-items:start}
 .sheet.rw .inner{max-width:none}
-.rwref{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding:0 6px 24px 0;margin-bottom:24px;scrollbar-width:thin}
+/* Niet hoger dan wat boven de 72px ondermarge van de pagina past, anders duwt het einde van de pagina de naslag omhoog. */
+.rwref{position:sticky;top:12px;max-height:calc(100vh - 96px);overflow:auto;padding:0 6px 24px 0;scrollbar-width:thin}
 .rwhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;position:sticky;top:0;background:var(--surface);padding:2px 0 10px;z-index:1}
 .rwhead .lbl{margin:0}
 .rwhead #rw-ver{flex:1 1 100%}
