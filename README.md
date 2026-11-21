@@ -116,8 +116,8 @@ npm run sync -- pad/naar/index.html
 
 ## Android-app
 
-`android/` bouwt een kleine APK die de webversie schermvullend opent (Trusted Web Activity, pakket `be.robin.schrijfkamer`).
-De app zelf blijft de webversie op GitHub Pages en werkt zichzelf bij; een nieuwe APK is alleen nodig als `android/` verandert.
+`android/` bouwt een eigen app (WebView, pakket `be.robin.schrijfkamer`) die de webversie schermvullend opent.
+Elke release op GitHub krijgt automatisch een `Schrijfkamer-<versie>.apk`, en de app werkt zichzelf bij via Instellingen → Updates.
 
 ```
 cd android
@@ -125,5 +125,10 @@ gradlew assembleRelease      (JAVA_HOME = Android Studio\jbr)
 ```
 
 De signeersleutel (`android/keystore/` en `android/keystore.properties`) staat niet in git. Bewaar er een kopie van:
-zonder die sleutel installeert een nieuwe APK niet als update, en klopt
-`https://robinbollens-commits.github.io/.well-known/assetlinks.json` niet meer (dan verschijnt er een adresbalk).
+zonder die sleutel installeert een nieuwe APK niet als update.
+
+## iPad en iPhone
+
+Er is geen aparte iOS-app: open https://robinbollens-commits.github.io/schrijfkamer/ in Safari, tik op de deelknop
+en kies **Zet op beginscherm**. De Schrijfkamer opent dan schermvullend, werkt offline en synchroniseert via je account.
+Exporteren en back-ups gaan via het deelmenu van iOS (bv. **Bewaar in Bestanden**).
