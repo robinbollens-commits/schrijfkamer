@@ -495,6 +495,11 @@ body.focus .bannerwrap{display:none}
 .ckitem{display:grid;gap:6px;padding:14px}
 .ckitem q{font-family:var(--f-ms);font-size:16px;font-style:italic;color:var(--muted);quotes:"“" "”"}
 .ckitem .src{font-size:12.5px;color:var(--faint)}
+.tcfix{font-family:var(--f-ms);font-size:16.5px;line-height:1.5}
+.tcfix del{color:var(--bad);text-decoration-thickness:1.5px}
+.tcfix ins{color:var(--ok);text-decoration:none;border-bottom:1.5px solid currentColor}
+.ckitem.done{opacity:.55}
+.tctips{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14.5px}
 .newfacts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .newfacts li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
 .newfacts li span{flex:1;min-width:200px}
@@ -996,7 +1001,7 @@ const S = { ready:false, mode:'local', books:[], activeId:prefs.activeId||null, 
   chapters:[], characters:[], places:[], notes:[], sessions:[], research:[], designs:[], sel:{}, rsFilter:'Alles', authorTab:prefs.authorTab||'marketing', ledForm:{}, ledPeriod:'Dit jaar', scenesOpen:false,
   mkt:{busy:null,ctl:null,text:'',sugg:{},err:'',errK:null}, noteFilter:'Alles', sessFilter:'Alles', entMode:prefs.entMode||{}, pickFor:null, uploading:null, confirmStruct:null, sprint:null, dirty:false,
   settings:{ai:false}, brand:{name:'',bio:'',tagline:'',colors:[],assets:[]}, ledger:[], session:null, ai:{busy:false,ctl:null,result:null,err:'',phase:'',from:null,ask:''},
-  check:{busy:false,ctl:null,result:null,err:'',phase:''}, gen:{busy:false,ctl:null,result:null,err:'',phase:'',kind:'Plotwending',about:''},
+  check:{busy:false,ctl:null,result:null,err:'',phase:''}, tc:{busy:false,ctl:null,result:null,err:'',phase:'',undo:null}, gen:{busy:false,ctl:null,result:null,err:'',phase:'',kind:'Plotwending',about:''},
   fb:{busy:false,ctl:null,id:null,err:'',phase:''} };
 let bookUnsubs=[];
 const book = ()=>S.books.find(b=>b.id===S.activeId);
@@ -1344,7 +1349,7 @@ function vManuscript(){
           <button class="btn" data-act="addChAfter" title="Voeg een nieuw hoofdstuk in na dit hoofdstuk">+ Hierna</button>
           <button class="btn danger" data-act="delCh" data-confirm="Zeker? Klik opnieuw">Verwijder</button>
         </span>
-        ${aiOn()?`<button class="btn ai" data-act="aiOpen" data-from="${esc(sel.id)}" title="Wat schrijf ik hierna?">Wat nu?</button><button class="btn ai" data-act="checkOpen" title="Consistentiecheck">Controleer</button>`:''}
+        ${aiOn()?`<button class="btn ai" data-act="aiOpen" data-from="${esc(sel.id)}" title="Wat schrijf ik hierna?">Wat nu?</button><button class="btn ai" data-act="checkOpen" title="Consistentiecheck">Controleer</button><button class="btn ai" data-act="tcOpen" title="Spelling, grammatica en tikfouten, zonder je tekst te herschrijven">Taalcheck</button>`:''}
         <button class="btn ${rw?'on':''}" data-act="refToggle" title="Personages, wereld, plot, ideeën of een ander hoofdstuk naast je tekst">${rw?'Verberg naslag':'Naslag'}</button>
         ${!hasVersions(sel)&&(sel.text||'').trim()?`<button class="btn" data-act="rwStart" data-m="blank" title="Herschrijf van nul, met je huidige tekst ernaast als referentie">Herschrijf</button><button class="btn" data-act="rwStart" data-m="copy" title="Bewerk een kopie, met je huidige tekst ernaast om op terug te vallen">Bewerk kopie</button>`:''}
         <button class="btn" data-act="session" id="sessBtn">Start sessie</button>
@@ -2929,7 +2934,7 @@ function openSettings(){
   if(DESK) return openDesktopSettings();
   openModal(`<h2 id="mt">Instellingen</h2>
     <label class="tick" style="font-size:15px;color:var(--ink);gap:10px"><input type="checkbox" id="set-ai" ${S.settings.ai?'checked':''} ${sample?'':'disabled'}> Claude-functies gebruiken</label>
-    <p class="muted" style="font-size:13.5px">Toont “Wat schrijf ik hierna?”, de consistentiecheck, de ideeëngenerator, feedback na een sessie en voorstellen in je marketingplan. Elke vraag telt mee in je eigen gebruik van Claude. Staat dit uit, dan werkt de app volledig zonder AI.</p>
+    <p class="muted" style="font-size:13.5px">Toont “Wat schrijf ik hierna?”, de consistentiecheck, de taalcheck, de ideeëngenerator, feedback na een sessie en voorstellen in je marketingplan. Elke vraag telt mee in je eigen gebruik van Claude. Staat dit uit, dan werkt de app volledig zonder AI.</p>
     ${sample?'':window.SKCloud?'<p class="faint" style="font-size:13px">AI-hulp werkt in de desktopapp.</p>':'<p class="faint" style="font-size:13px">Niet beschikbaar in deze weergave. Open de pagina in claude.ai om Claude te gebruiken.</p>'}
     ${accountHtml()}
     ${updSectionHtml()}
@@ -3133,6 +3138,138 @@ function addFact(i){
   if(m){ m.o.notes=(m.o.notes?m.o.notes.trimEnd()+'\n':'')+'• '+f.feit; saveEnt(m.kind,m.o,0); }
   else { const n={id:newId(),type:'Idee',text:`${f.naam?f.naam+': ':''}${f.feit}`,src:'Consistentiecheck',done:false,created:Date.now()}; S.notes.push(n); saveEnt('notes',n,0); renderSide(); }
   f.added=true; renderCheck();
+}
+
+/* ================= taalcheck ================= */
+// De AI zoekt spel-, grammatica- en tikfouten en geeft per fout alleen het kleine stukje dat verandert.
+// De schrijver beslist per punt; er wordt nooit een zin herschreven.
+const TC_KINDS=['Spelling','Grammatica','Woordkeus','Leestekens','Naam','Tijd'];
+function openTc(){
+  if(!sample) return;
+  const c=S.chapters.find(x=>x.id===S.sel.chapters); if(!c) return;
+  const n=S.chapters.indexOf(c)+1, T=S.tc;
+  if(T.result&&T.result.chapterId!==c.id&&!T.busy){ T.result=null; T.undo=null; }
+  openModal(`<h2 id="mt">Taalcheck</h2>
+    <p class="muted">Claude leest hoofdstuk ${n}${c.title?` (${esc(c.title)})`:''} na op spelling, grammatica, verwarde woorden, leestekens, de schrijfwijze van je namen en onbedoelde tijdswissels. Je krijgt per fout alleen het woord of stukje dat verandert; je stijl en je zinnen blijven van jou. Niets wordt aangepast zonder dat jij op “Pas toe” klikt.</p>
+    <div class="row"><button class="btn primary" data-act="tcGo" id="tcGo" ${c.words?'':'disabled'}>Controleer hoofdstuk ${n}</button><button class="btn" data-act="tcStop" id="tcStop" hidden>Stop</button>
+      <span class="muted" id="tcStatus" role="status">${c.words?'':'Dit hoofdstuk heeft nog geen tekst.'}</span></div>
+    <div id="tcOut" style="display:grid;gap:14px"></div>`,'wide');
+  renderTc();
+}
+function buildTcPrompt(c){
+  const b=book(), L=[];
+  const names=[...new Set([...S.characters,...S.places].map(x=>String(x.name||'').trim()).filter(Boolean))].slice(0,80);
+  L.push('Je bent een zorgvuldige corrector (proeflezer) van een roman. De schrijver schrijft zijn boek zelf en wil alleen weten waar taalfouten staan. Zijn stem, zijn stijl en zijn zinnen blijven van hem.',
+    `Taal van het boek: ${langName(bookLang(b))}.`,'');
+  if(names.length) L.push('## Vaste namen (zo gespeld door de schrijver)',names.join(', '),'');
+  const t=String(c.text||'');
+  L.push(`## Tekst: ${c.title||'hoofdstuk zonder titel'}`,t.length>90000?t.slice(0,90000)+'\n[… de rest van het hoofdstuk is weggelaten]':t,'');
+  L.push('## Opdracht',
+    'Meld: spelfouten en tikfouten; grammaticafouten (bijvoorbeeld onderwerp en werkwoord die niet kloppen, een verkeerde werkwoordsvorm); verwarde woorden (zoals to/too, its/it\'s, then/than, your/you\'re, of/off, lose/loose); woorden uit een andere taal die er per ongeluk tussen staan; fouten in leestekens, vooral bij dialoog (een ontbrekend aanhalingsteken, een verkeerde komma of punt bij de dialoogzin); dubbele woorden of spaties; en namen die afwijken van de vaste namen of van hoe ze elders in deze tekst gespeld zijn.',
+    'Tijdswissels: meld alleen een wissel die duidelijk per ongeluk lijkt, zoals één werkwoord in de verleden tijd midden in een passage die in de tegenwoordige tijd staat. Een terugblik of herinnering in de verleden of voltooide tijd is geen fout.',
+    'Meld geen stijlkeuzes, geen zinnen die anders "mooier" zouden zijn, geen spreektaal in dialoog, geen bewuste zinsfragmenten en geen herhaling. Herschrijf nooit een zin. Verzin geen fouten; is de tekst foutloos, geef dan een lege lijst.',
+    'Per fout: "citaat" is een korte passage van 4 tot 12 woorden, letterlijk en teken voor teken overgenomen uit de tekst, met de fout erin, zodat ze terug te vinden is. "fout" is het exacte stuk binnen het citaat dat moet veranderen, zo kort mogelijk (meestal één woord of leesteken). "goed" is wat er in de plaats van dat stuk moet komen, en niets meer. "uitleg" is een korte uitleg in het Nederlands.',
+    `"soort" is één van: ${TC_KINDS.join(', ')}.`,
+    'Komt dezelfde fout op meerdere plaatsen voor, meld dan elke plaats apart. Hooguit 80 punten, in de volgorde van de tekst.',
+    '"tips": hooguit drie fouten die bij deze schrijver steeds terugkomen, elk in één zin in het Nederlands, zodat hij ze zelf leert herkennen. Geen algemene schrijftips. Geen patroon, dan een lege lijst.',
+    'Antwoord met alleen JSON in precies deze vorm:',
+    '{"samenvatting":"één zin over de taal van dit hoofdstuk","punten":[{"soort":"Spelling","citaat":"…","fout":"…","goed":"…","uitleg":"…"}],"tips":["…"]}');
+  return L.join('\n');
+}
+// Zoekt waar het punt in de tekst staat: eerst het hele citaat, dan kortere stukken rond de fout
+// (nodig als een verbetering vlak ernaast het citaat al veranderde).
+function tcLocate(text,x){
+  const v=String(text||''), i=x.citaat.indexOf(x.fout); if(i<0) return null;
+  const left=x.citaat.slice(0,i), right=x.citaat.slice(i+x.fout.length);
+  const tries=[[x.citaat,i],[left.slice(-12)+x.fout+right.slice(0,12),Math.min(12,left.length)]];
+  if(right.trim().length>=4) tries.push([x.fout+right.slice(0,16),0]);
+  if(left.trim().length>=4) tries.push([left.slice(-16)+x.fout,Math.min(16,left.length)]);
+  for(const [q,off] of tries){ const at=v.indexOf(q); if(at>=0) return {at:at+off,len:x.fout.length}; }
+  return null;
+}
+async function runTc(){
+  const T=S.tc; if(T.busy||!sample) return;
+  const c=S.chapters.find(x=>x.id===S.sel.chapters); if(!c||!c.words) return;
+  T.busy=true; T.err=''; T.undo=null; T.phase='Claude leest je hoofdstuk na…';
+  const ctl=new AbortController(); T.ctl=ctl; renderTc();
+  try{
+    const d=await aiJson(buildTcPrompt(c),ctl,()=>{ if(!T.phase.startsWith('Claude zet')){ T.phase='Claude zet de fouten op een rij…'; renderTc(); } });
+    const seen=new Set();
+    const punten=(Array.isArray(d&&d.punten)?d.punten:[]).map(x=>({soort:TC_KINDS.includes(x&&x.soort)?x.soort:'Spelling',citaat:String(x&&x.citaat||''),fout:String(x&&x.fout||''),goed:String(x&&x.goed!=null?x.goed:''),uitleg:String(x&&x.uitleg||'')}))
+      .filter(x=>x.citaat&&x.fout&&x.fout!==x.goed&&x.citaat.includes(x.fout))
+      .filter(x=>{ const k=x.citaat+'|'+x.fout; if(seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0,80);
+    punten.forEach(x=>{ const p=tcLocate(c.text,x); x.pos=p?p.at:Infinity; x.found=!!p; });
+    punten.sort((a,b)=>a.pos-b.pos);
+    T.result={chapterId:c.id,samenvatting:String(d&&d.samenvatting||''),punten,tips:(Array.isArray(d&&d.tips)?d.tips:[]).map(String).filter(Boolean).slice(0,3)};
+  }catch(e){ if(e.msg) T.err=e.msg; }
+  finally{ T.busy=false; T.ctl=null; renderTc(); }
+}
+function tcContext(x){
+  const i=x.citaat.indexOf(x.fout);
+  return `${esc(x.citaat.slice(0,i))}<del>${esc(x.fout)}</del>${x.goed?`<ins>${esc(x.goed)}</ins>`:''}${esc(x.citaat.slice(i+x.fout.length))}`;
+}
+function renderTc(){
+  const go=$('#tcGo'); if(!go) return;
+  const T=S.tc, r=T.result, c=S.chapters.find(x=>x.id===S.sel.chapters);
+  go.disabled=T.busy||!(c&&c.words); if(r&&!T.busy) go.textContent='Opnieuw controleren';
+  $('#tcStop').hidden=!T.busy;
+  const st=$('#tcStatus'); if(T.busy||T.err||r){ st.textContent=T.busy?T.phase:T.err; st.className=T.busy?'muted thinking':'muted'; st.style.color=!T.busy&&T.err?'var(--bad)':''; }
+  const out=$('#tcOut');
+  if(!r||r.chapterId!==S.sel.chapters){ out.innerHTML=''; return; }
+  // na elke wijziging opnieuw kijken welke punten nog letterlijk in de tekst staan
+  r.punten.forEach(x=>{ if(!x.applied&&!x.hidden) x.found=!!tcLocate(c&&c.text,x); });
+  const open=r.punten.map((x,i)=>[x,i]).filter(([x])=>!x.hidden&&!x.applied);
+  const doable=open.filter(([x])=>x.found).length, done=r.punten.filter(x=>x.applied).length;
+  out.innerHTML=`${r.samenvatting?`<p class="ai-an">${esc(r.samenvatting)}</p>`:''}
+    ${r.tips.length?`<section class="panel"><h2>Wat vaak terugkomt</h2><ul class="tctips">${r.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></section>`:''}
+    ${open.length||done?`<div class="row"><span class="muted">${nf(open.length)} open${done?` · ${nf(done)} toegepast`:''}</span><span class="spacer"></span>
+      ${T.undo?`<button class="btn sm" data-act="tcUndo">Laatste ongedaan maken</button>`:''}
+      ${doable>1?`<button class="btn sm" data-act="tcAll" data-confirm="Alle ${doable} toepassen? Klik opnieuw">Pas alle ${nf(doable)} toe</button>`:''}</div>`:''}
+    ${open.length?`<div class="ck">${open.map(([x,i])=>`<article class="panel ckitem">
+      <div class="row"><span class="chip">${esc(x.soort)}</span>${x.found?'':`<span class="chip mid">Staat niet letterlijk in je tekst</span>`}</div>
+      <p class="tcfix">${tcContext(x)}</p>
+      ${x.uitleg?`<p class="muted">${esc(x.uitleg)}</p>`:''}
+      <div class="row">${x.found?`<button class="btn primary sm" data-act="tcApply" data-i="${i}">Pas toe</button><button class="btn sm" data-act="tcShow" data-i="${i}">Toon in tekst</button>`:''}<button class="btn ghost sm" data-act="tcHide" data-i="${i}">Negeer</button></div>
+    </article>`).join('')}</div>`
+    :`<div class="empty"><strong>${r.punten.length?'Alles is verwerkt':'Geen taalfouten gevonden'}</strong><span>${r.punten.length?`${nf(done)} toegepast, ${nf(r.punten.length-done)} genegeerd.`:'Claude vond niets om te verbeteren in dit hoofdstuk.'}</span></div>`}
+    <p class="faint" style="font-size:12.5px">Claude kan zich vergissen of iets missen. Lees elk voorstel voor je het toepast.</p>`;
+}
+// Past één of meer punten toe op de tekst van het hoofdstuk, van achter naar voor zodat de posities kloppen.
+function tcApply(list){
+  const r=S.tc.result, c=S.chapters.find(x=>x.id===(r&&r.chapterId)); if(!c) return;
+  const before=c.text;
+  const hits=list.map(x=>({x,p:tcLocate(c.text,x)})).filter(h=>h.p).sort((a,b)=>b.p.at-a.p.at);
+  let v=c.text, last=Infinity, n=0;
+  for(const {x,p} of hits){
+    if(p.at+p.len>last) continue; // overlapt met een punt dat al werd toegepast
+    v=v.slice(0,p.at)+x.goed+v.slice(p.at+p.len); last=p.at; x.applied=true; n++;
+  }
+  if(!n){ toast('Die passage staat niet meer letterlijk in je tekst.'); renderTc(); return; }
+  S.tc.undo={chapterId:c.id,text:before,items:hits.filter(h=>h.x.applied).map(h=>h.x)};
+  c.text=v; c.words=countWords(v); c.updated=Date.now(); saveEnt('chapters',c,0);
+  const el=$('#ch-text');
+  if(el&&S.sel.chapters===c.id){ const y=scrollY; el.value=v; grow(el); scrollTo(0,y); }
+  liveChapter(c); renderTc();
+  toast(n===1?'Verbetering toegepast':`${nf(n)} verbeteringen toegepast`);
+}
+function tcUndo(){
+  const T=S.tc, U=T.undo; if(!U) return;
+  const c=S.chapters.find(x=>x.id===U.chapterId); if(!c) return;
+  c.text=U.text; c.words=countWords(c.text); c.updated=Date.now(); saveEnt('chapters',c,0);
+  U.items.forEach(x=>{ x.applied=false; });
+  T.undo=null;
+  const el=$('#ch-text'); if(el&&S.sel.chapters===c.id){ const y=scrollY; el.value=c.text; grow(el); scrollTo(0,y); }
+  liveChapter(c); renderTc(); toast('Ongedaan gemaakt');
+}
+function tcShow(i){
+  const x=S.tc.result?.punten[i]; if(!x) return;
+  const el=$('#ch-text'); const p=el&&tcLocate(el.value,x);
+  if(!p){ toast('Die passage staat niet letterlijk in je tekst. Zoek ze zelf op.'); return; }
+  closeModal();
+  el.focus({preventScroll:true}); el.setSelectionRange(p.at,p.at+p.len);
+  const r=el.getBoundingClientRect();
+  scrollTo(0,scrollY+r.top+(p.at/Math.max(1,el.value.length))*r.height-innerHeight/3);
 }
 
 /* ================= ideeëngenerator ================= */
@@ -3596,6 +3733,14 @@ const ACTS={
   ckShow:d=>showQuote(Number(d.i)),
   ckHide:d=>{ const x=S.check.result?.punten[Number(d.i)]; if(x){ x.hidden=true; renderCheck(); } },
   ckAdd:d=>addFact(Number(d.i)),
+  tcOpen:()=>openTc(),
+  tcGo:()=>runTc(),
+  tcStop:()=>S.tc.ctl?.abort(),
+  tcApply:d=>{ const x=S.tc.result?.punten[Number(d.i)]; if(x) tcApply([x]); },
+  tcAll:(d,a)=>{ if(!armed(a)) return; const r=S.tc.result; if(r) tcApply(r.punten.filter(x=>!x.hidden&&!x.applied&&x.found)); },
+  tcUndo:()=>tcUndo(),
+  tcShow:d=>tcShow(Number(d.i)),
+  tcHide:d=>{ const x=S.tc.result?.punten[Number(d.i)]; if(x){ x.hidden=true; renderTc(); } },
   genGo:()=>runGen(),
   genStop:()=>S.gen.ctl?.abort(),
   genSave:d=>saveGenIdea(Number(d.i)),

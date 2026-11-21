@@ -5,7 +5,7 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
 - **Taal met de gebruiker:** altijd Nederlands. De UI is ook Nederlands.
 - **Toon:** Robin wil een adviseur, geen ja-knikker. Benoem fouten en risico's eerst, zonder loze lof, en geef zekerheid aan met [Certain], [Likely] of [Guessing].
 - **Repository:** `robinbollens-commits/schrijfkamer` (openbaar, nodig voor de auto-update).
-- **Huidige release:** 1.9.3. Account-sync via Firebase staat aan; er is een Android-app, en op iPhone/iPad werkt de webversie als app op het beginscherm.
+- **Huidige release:** 1.9.4. Account-sync via Firebase staat aan; er is een Android-app, en op iPhone/iPad werkt de webversie als app op het beginscherm.
 
 ## Stand van zaken
 
@@ -90,6 +90,19 @@ Schrijfkamer is een app om boeken te plannen en te schrijven: manuscript per hoo
   - Faalt delen om een andere reden (bijvoorbeeld omdat de tik te lang geleden is bij een grote back-up), dan volgt de gewone download.
 - Dit is getest met nagebootste toestellen in Node, niet op een echte iPad.
 - Rechtop (ongeveer 820 px) krijgt de iPad de gsm-indeling, liggend de desktopindeling.
+
+**1.9.3:** in de focusmodus blijft de werkbalk (`.edtools`) bovenaan staan. `.rwref` (naslag) is maximaal `100vh - 96px` hoog, zodat de 72px ondermarge van de pagina het paneel onderaan niet meer omhoog duwt.
+
+**1.9.4: Taalcheck** (knop naast "Controleer", alleen waar AI aanstaat, dus in de desktopapp).
+
+- Robin schrijft Engels als Nederlandstalige. Typische fouten: to/too, its/it's, of/off, Nederlandse woorden ertussen, verkeerd gespelde namen.
+- `buildTcPrompt` geeft de vaste namen (personages en wereld) en de tekst mee. Claude antwoordt met JSON: per fout `citaat` (4 tot 12 woorden, letterlijk), `fout` (het stuk binnen het citaat), `goed` (alleen de vervanging) en `uitleg`, plus hooguit drie `tips` over terugkerende fouten.
+- Stijl wordt niet gemeld en er wordt nooit een zin herschreven. Robin schrijft zelf.
+- `tcLocate` zoekt het citaat, en anders kortere stukken rond de fout. Zo blijven twee fouten in dezelfde zin vindbaar nadat de eerste is toegepast.
+- `tcApply` werkt van achter naar voor, slaat overlappende punten over en bewaart één stap "ongedaan maken".
+- "Pas alle toe" vraagt een tweede klik (`armed`).
+- Kosten: met Sonnet 5.5 ongeveer $0,03 per hoofdstuk (schatting).
+- Getest met een nagebootst antwoord in de browser. Een echte API-oproep is niet getest; Robin test dat zelf.
 
 **Waarschuwingen:**
 
